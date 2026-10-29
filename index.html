@@ -99,7 +99,6 @@
       <label class="f">手技日<span class="row" style="gap:6px"><input type="date" id="cDate" style="min-width:150px"><button class="btn sm" id="btnToday" type="button">今日</button></span></label>
       <label class="f">患者ID（バーコード可）<input type="text" id="cPid" placeholder="リストバンドを読むか入力" inputmode="numeric"></label>
       <label class="f">手技<select id="cProc"><option>PCI</option><option>CAG</option><option>EVT</option><option>PM</option><option>アブレーション</option><option>TAVI</option><option>その他</option></select></label>
-      <label class="f">NCD / J-PCI 番号<input type="text" id="cNcd" placeholder="あとで入力可"></label>
       <button class="btn primary" id="btnNewCase">症例を開始 →</button>
     </div>
     <div class="row" style="margin-top:10px">
@@ -135,7 +134,7 @@
       </div>
       <div class="stat" style="margin-top:14px; line-height:1.8">
         保存先：この端末のブラウザ内（Goodnet・NCD とは独立）。<br>
-        列：症例キー / 手技日 / 患者ID / NCD番号 / GTIN / JAN / 品名 / LOT / 使用期限 / シリアル / REF / 原文字列。<br>
+        列：症例キー / 手技日 / 患者ID / GTIN / JAN / 品名 / LOT / 使用期限 / シリアル / REF / 原文字列。<br>
         GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。
       </div>
     </div>
@@ -190,13 +189,13 @@
 
   function caseKey(c) { return c.date + "_" + (c.pid || "noid") + "_" + c.proc; }
   function newCase() {
-    const c = { date: $("#cDate").value || today(), pid: $("#cPid").value.trim(), proc: $("#cProc").value, ncd: $("#cNcd").value.trim(), created: now(), items: [] };
+    const c = { date: $("#cDate").value || today(), pid: $("#cPid").value.trim(), proc: $("#cProc").value, created: now(), items: [] };
     const k = caseKey(c);
-    if (db.cases[k]) { cur = db.cases[k]; cur.ncd = c.ncd || cur.ncd; log("既存の症例を開きました: " + k); }
+    if (db.cases[k]) { cur = db.cases[k]; log("既存の症例を開きました: " + k); }
     else { db.cases[k] = c; cur = c; log("新しい症例: " + k); }
     save(); render(); $("#scan").focus();
   }
-  function openCase(k) { cur = db.cases[k]; if (!cur) return; $("#cDate").value = cur.date; $("#cPid").value = cur.pid; $("#cProc").value = cur.proc; $("#cNcd").value = cur.ncd || ""; render(); }
+  function openCase(k) { cur = db.cases[k]; if (!cur) return; $("#cDate").value = cur.date; $("#cPid").value = cur.pid; $("#cProc").value = cur.proc; render(); }
   function lookup(jan) { const m = M[jan]; return m ? { maker: m[0], name: m[1], size: m[2], shape: m[3], model: m[4], hoken: m[5], price: m[6] } : null; }
 
   // 患者ID らしい文字列か（GS1 の製品情報を含まず、英数字 3〜20 桁）
@@ -244,7 +243,7 @@
     const sel = $("#caseSel"); sel.innerHTML = "";
     Object.keys(db.cases).sort().reverse().forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = k + "（" + db.cases[k].items.length + "）"; sel.appendChild(o); });
     if (cur) sel.value = caseKey(cur);
-    $("#caseStat").innerHTML = cur ? "現在の症例 <b>" + esc(caseKey(cur)) + "</b>" + (cur.ncd ? "　NCD/J-PCI <b>" + esc(cur.ncd) + "</b>" : "　NCD/J-PCI 番号は未入力") + "" : "症例が未選択です。上の欄を入れて「症例を開始」";
+    $("#caseStat").innerHTML = cur ? "現在の症例 <b>" + esc(caseKey(cur)) + "</b>" + "" : "症例が未選択です。上の欄を入れて「症例を開始」";
     const tb = $("#tbl tbody"); tb.innerHTML = "";
     if (!cur) { $("#tableStat").textContent = ""; return; }
     const tag = (t, c) => '<span class="tag ' + c + '">' + esc(t) + "</span>";
@@ -261,8 +260,8 @@
     $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件" + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "");
   }
 
-  const COLS = ["症例キー", "手技日", "施設内キー", "手技", "NCD_JPCI番号", "読取時刻", "GTIN", "JAN", "メーカー", "品名", "サイズ", "形状", "型番", "特定保険医療材料名", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "マスター照合", "注意", "原文字列"];
-  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, c.ncd || "", r.at, r.gtin, r.jan, r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hoken || "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.master, notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
+  const COLS = ["症例キー", "手技日", "施設内キー", "手技", "読取時刻", "GTIN", "JAN", "メーカー", "品名", "サイズ", "形状", "型番", "特定保険医療材料名", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "マスター照合", "注意", "原文字列"];
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, r.at, r.gtin, r.jan, r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hoken || "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.master, notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
   function csv(rs) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 
