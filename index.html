@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#070b14">
+<title>Alice Scan Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23070b14'/%3E%3Cpath d='M6 21h8l3-8 5 16 4-12 3 4h5' fill='none' stroke='%2319e3d1' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root { --bg:#070b14; --bg2:#0b1221; --bg3:#0e1729; --ink:#e8eef8; --muted:#8a97ad; --dim:#5a6980; --line:rgba(255,255,255,.08);
+    --cyan:#19e3d1; --cyan2:#5fd7ff; --coral:#ff5a6e; --gold:#ffcd5a;
+    --disp:"Chakra Petch","Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",sans-serif; --jp:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",sans-serif; --mono:"Share Tech Mono",ui-monospace,Consolas,monospace; --ease:cubic-bezier(.2,.7,.2,1); }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--jp); font-feature-settings:"palt"; font-size:15px; }
+  body { min-height:100vh; background:radial-gradient(1100px 600px at 85% -10%, rgba(25,227,209,.10), transparent 60%), radial-gradient(800px 500px at -10% 30%, rgba(95,215,255,.07), transparent 60%), var(--bg); }
+  .glow { position:fixed; width:520px; height:520px; border-radius:50%; pointer-events:none; z-index:0; background:radial-gradient(circle, rgba(25,227,209,.08), transparent 60%); transform:translate(-50%,-50%); left:50%; top:20%; }
+  header { position:sticky; top:0; z-index:5; backdrop-filter:blur(10px); background:rgba(7,11,20,.75); border-bottom:1px solid var(--line); padding:12px 20px; display:flex; align-items:center; gap:14px; }
+  .brand { display:flex; align-items:center; gap:10px; font-family:var(--disp); font-weight:700; font-size:20px; letter-spacing:.04em; }
+  .brand b { color:var(--cyan); font-weight:700; }
+  .brand small { font-family:var(--mono); font-size:11px; letter-spacing:.22em; color:var(--muted); text-transform:uppercase; margin-left:6px; }
+  .status { margin-left:auto; font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--muted); display:flex; gap:14px; align-items:center; white-space:nowrap; }
+  @media (max-width: 640px) { .brand small { display:none; } .status { font-size:11px; gap:10px; } }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--cyan); box-shadow:0 0 12px var(--cyan); display:inline-block; margin-right:6px; }
+  .dot.off { background:var(--coral); box-shadow:0 0 10px var(--coral); }
+  main { position:relative; z-index:1; padding:18px 20px 60px; display:grid; gap:16px; max-width:1500px; margin:0 auto; }
+  .eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:.26em; text-transform:uppercase; color:var(--cyan); margin:0 0 8px; }
+  h2 { margin:0 0 10px; font-size:20px; font-weight:700; letter-spacing:.01em; }
+  .card { position:relative; border:1px solid var(--line); border-radius:18px; padding:20px 22px; background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 60%), var(--bg2); box-shadow:0 20px 60px rgba(0,0,0,.35); }
+  .card.hot { border-color:rgba(25,227,209,.35); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
+  label.f { display:flex; flex-direction:column; gap:5px; font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  input, select, textarea, button { font:inherit; color:var(--ink); }
+  input[type=text], input[type=date], select, textarea { background:var(--bg3); border:1px solid var(--line); border-radius:10px; padding:11px 12px; min-width:150px; font-family:var(--jp); font-size:15px; }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--cyan); box-shadow:0 0 0 3px rgba(25,227,209,.18); }
+  select { appearance:none; background-image:linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position:calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size:5px 5px; background-repeat:no-repeat; padding-right:34px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:999px; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,.18); background:transparent; cursor:pointer; transition:transform .2s var(--ease), box-shadow .2s, border-color .2s, color .2s; white-space:nowrap; }
+  .btn:hover { border-color:var(--cyan); color:var(--cyan); transform:translateY(-1px); }
+  .btn.primary { background:var(--cyan); color:#061018; border-color:var(--cyan); }
+  .btn.primary:hover { color:#061018; box-shadow:0 10px 40px rgba(25,227,209,.35); }
+  .btn.danger { color:var(--coral); border-color:rgba(255,90,110,.35); } .btn.danger:hover { border-color:var(--coral); color:var(--coral); }
+  .btn.sm { padding:7px 14px; font-size:13px; }
+  .btn:disabled { opacity:.45; cursor:default; transform:none; }
+  #scan { width:100%; font-family:var(--mono); font-size:22px; letter-spacing:.04em; padding:16px 18px; border:1.5px solid rgba(25,227,209,.5); border-radius:14px; background:#060a12; color:var(--cyan); }
+  #scan::placeholder { color:var(--dim); font-family:var(--jp); font-size:16px; letter-spacing:0; }
+  .scanwrap { position:relative; }
+  .scanwrap::after { content:""; position:absolute; left:18px; right:18px; bottom:-1px; height:2px; background:linear-gradient(90deg, transparent, var(--cyan), transparent); opacity:.6; animation:sweep 2.4s linear infinite; }
+  @keyframes sweep { 0% { transform:translateX(-30%); opacity:0 } 50% { opacity:.8 } 100% { transform:translateX(30%); opacity:0 } }
+  .stat { font-family:var(--mono); font-size:12px; color:var(--muted); letter-spacing:.06em; margin-top:8px; }
+  .stat b { color:var(--ink); font-weight:500; }
+  #log { font-family:var(--mono); font-size:12px; color:var(--muted); max-height:96px; overflow:auto; white-space:pre-wrap; margin-top:10px; line-height:1.6; }
+  #log .n { color:var(--cyan2); }
+  .tablewrap { overflow:auto; max-height:62vh; border:1px solid var(--line); border-radius:12px; margin-top:12px; -webkit-overflow-scrolling:touch; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:1200px; }
+  th, td { border-bottom:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:middle; white-space:nowrap; }
+  th { position:sticky; top:0; background:#0c1424; font-family:var(--mono); font-weight:400; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); z-index:1; }
+  tr:hover td { background:rgba(255,255,255,.025); }
+  td.mono { font-family:var(--mono); letter-spacing:.03em; }
+  td.name { font-weight:500; }
+  td[contenteditable] { border-bottom:1px dashed rgba(255,205,90,.5); color:var(--gold); min-width:90px; }
+  .tag { display:inline-block; padding:2px 9px; border-radius:999px; font-family:var(--mono); font-size:11px; letter-spacing:.08em; border:1px solid; margin-right:4px; }
+  .ok { color:var(--cyan); border-color:rgba(25,227,209,.45); } .warn { color:var(--gold); border-color:rgba(255,205,90,.45); } .bad { color:var(--coral); border-color:rgba(255,90,110,.5); }
+  tr.flash td { animation:flash 1.2s var(--ease); } @keyframes flash { from { background:rgba(25,227,209,.18) } to { background:transparent } }
+  .x { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; } .x:hover { border-color:var(--coral); color:var(--coral); }
+  details summary { cursor:pointer; color:var(--cyan2); font-size:14px; list-style:none; } details summary::before { content:"▸ "; } details[open] summary::before { content:"▾ "; }
+  textarea { width:100%; min-height:90px; font-family:var(--mono); margin-top:8px; }
+  .split { display:grid; grid-template-columns:1.25fr 1fr; gap:16px; }
+  @media (max-width: 980px) { .split { grid-template-columns:1fr; } header { padding:10px 14px; } main { padding:12px 12px 40px; } .card { padding:16px; } }
+  /* camera */
+  #cam { display:none; position:fixed; inset:0; z-index:50; background:#000; }
+  #cam video { width:100%; height:100%; object-fit:cover; }
+  #cam .frame { position:absolute; left:50%; top:45%; width:min(82vw, 560px); height:min(36vh, 300px); transform:translate(-50%,-50%); border:2px solid rgba(25,227,209,.85); border-radius:18px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); }
+  #cam .frame::after { content:""; position:absolute; left:6%; right:6%; top:50%; height:2px; background:var(--cyan); box-shadow:0 0 14px var(--cyan); animation:line 1.6s ease-in-out infinite alternate; }
+  @keyframes line { from { transform:translateY(-70px) } to { transform:translateY(70px) } }
+  #cam .bar { position:absolute; left:0; right:0; bottom:0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); display:flex; gap:10px; align-items:center; background:linear-gradient(transparent, rgba(7,11,20,.9)); }
+  #cam .msg { position:absolute; left:0; right:0; top:calc(14px + env(safe-area-inset-top)); text-align:center; font-family:var(--mono); font-size:13px; letter-spacing:.1em; color:var(--cyan); }
+  #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:rgba(25,227,209,.92); color:#061018; padding:10px 18px; border-radius:999px; font-weight:700; max-width:90vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:opacity .2s; }
+  #cam .hit.show { opacity:1; }
+  #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
+  #cam .ocr button { font-family:var(--mono); font-size:18px; letter-spacing:.06em; padding:10px 16px; border-radius:12px; border:1px solid var(--cyan); background:rgba(7,11,20,.85); color:var(--cyan); }
+  .ecg { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:0; opacity:.35; pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<svg class="ecg" viewBox="0 0 1400 70" preserveAspectRatio="none"><path d="M0 40h120l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h120" fill="none" stroke="#19e3d1" stroke-width="1.6"/></svg>
+
+<header>
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#0e1729"/><path d="M6 21h8l3-8 5 16 4-12 3 4h5" fill="none" stroke="#19e3d1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Alice<b>Scan</b><small>UDI Ledger</small></div>
+  <div class="status"><span id="masterStat"><span class="dot off"></span>辞書</span><span id="camStat"></span></div>
+</header>
+
+<main>
+  <section class="card">
+    <p class="eyebrow">Case</p>
+    <div class="row">
+      <label class="f">手技日<span class="row" style="gap:6px"><input type="date" id="cDate" style="min-width:150px"><button class="btn sm" id="btnToday" type="button">今日</button></span></label>
+      <label class="f">患者ID（バーコード可）<input type="text" id="cPid" placeholder="リストバンドを読むか入力" inputmode="numeric"></label>
+      <label class="f">手技<select id="cProc"><option>PCI</option><option>CAG</option><option>EVT</option><option>PM</option><option>アブレーション</option><option>TAVI</option><option>その他</option></select></label>
+      <label class="f">NCD / J-PCI 番号<input type="text" id="cNcd" placeholder="あとで入力可"></label>
+      <button class="btn primary" id="btnNewCase">症例を開始 →</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="f">保存済み症例<select id="caseSel"></select></label>
+      <button class="btn sm" id="btnLoadCase">開く</button>
+      <button class="btn sm danger" id="btnDelCase">削除</button>
+    </div>
+    <div class="stat" id="caseStat"></div>
+  </section>
+
+  <section class="split">
+    <div class="card hot">
+      <p class="eyebrow">Scan</p>
+      <div class="scanwrap"><input id="scan" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="バーコードリーダーで読む（Enter で確定）"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="btnCam">📷 カメラで読む（iPad / スマホ）</button>
+        <button class="btn sm" id="btnFocus">リーダー入力にフォーカス</button>
+        <button class="btn sm" id="btnSelfTest">自己テスト 13本</button>
+      </div>
+      <details style="margin-top:12px"><summary>複数行を貼り付けて取り込む</summary>
+        <textarea id="paste" placeholder="1行1バーコード。括弧付き HRI でも生文字列でも可"></textarea>
+        <button class="btn sm" id="btnPaste" style="margin-top:8px">取り込む</button>
+      </details>
+      <div id="log"></div>
+    </div>
+    <div class="card">
+      <p class="eyebrow">Export</p>
+      <h2>レジストリ提出用の書き出し</h2>
+      <div class="row">
+        <button class="btn" id="btnCsv">この症例を CSV</button>
+        <button class="btn" id="btnJson">この症例を JSON</button>
+        <button class="btn" id="btnAllCsv">全症例を CSV</button>
+      </div>
+      <div class="stat" style="margin-top:14px; line-height:1.8">
+        保存先：この端末のブラウザ内（Goodnet・NCD とは独立）。<br>
+        列：症例キー / 手技日 / 患者ID / NCD番号 / GTIN / JAN / 品名 / LOT / 使用期限 / シリアル / REF / 原文字列。<br>
+        GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">Ledger</p>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">使用デバイス</h2><div class="stat" id="tableStat" style="margin:0"></div></div>
+    <div class="tablewrap">
+    <table id="tbl">
+      <thead><tr><th>#</th><th>時刻</th><th>メーカー</th><th>品名</th><th>サイズ / 形状</th><th>JAN</th><th>LOT</th><th>使用期限</th><th>シリアル</th><th>REF</th><th>GTIN</th><th>照合</th><th>注意</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+  </section>
+</main>
+
+<div id="cam">
+  <video id="video" playsinline muted autoplay></video>
+  <div class="frame"></div>
+  <div class="msg" id="camMsg">カメラを起動しています…</div>
+  <div class="hit" id="camHit"></div>
+  <div class="ocr" id="ocrBox"></div>
+  <div class="bar">
+    <button class="btn" id="btnTorch" style="display:none">💡 ライト</button>
+    <button class="btn" id="btnFlip">🔄 カメラ切替</button>
+    <button class="btn" id="btnMode">🎯 デバイス</button>
+    <button class="btn" id="btnOcr" style="display:none">🔢 数字を読む</button>
+    <span style="flex:1"></span>
+    <button class="btn primary" id="btnCamClose">閉じる</button>
+  </div>
+</div>
+
+<script src="master_jan.js"></script>
+<script src="gs1.js"></script>
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const LS = "scanLedger.v1"; const MERGE_SEC = 90;
+  const M = window.MASTER_JAN || {};
+  const nM = Object.keys(M).length;
+  $("#masterStat").innerHTML = (nM ? '<span class="dot"></span>辞書 ' + nM.toLocaleString() + ' 件' : '<span class="dot off"></span>辞書なし（master_jan.js）');
+
+  let db = load(); let cur = null;
+  function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
+  function save() { try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
+  function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function now() { return new Date().toISOString(); }
+  function hhmm(iso) { const d = new Date(iso); return [d.getHours(), d.getMinutes(), d.getSeconds()].map((x) => String(x).padStart(2, "0")).join(":"); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function log(s) { const el = $("#log"); el.innerHTML = '<span class="n">' + hhmm(now()) + "</span> " + esc(s) + "\n" + el.innerHTML; }
+
+  function caseKey(c) { return c.date + "_" + (c.pid || "noid") + "_" + c.proc; }
+  function newCase() {
+    const c = { date: $("#cDate").value || today(), pid: $("#cPid").value.trim(), proc: $("#cProc").value, ncd: $("#cNcd").value.trim(), created: now(), items: [] };
+    const k = caseKey(c);
+    if (db.cases[k]) { cur = db.cases[k]; cur.ncd = c.ncd || cur.ncd; log("既存の症例を開きました: " + k); }
+    else { db.cases[k] = c; cur = c; log("新しい症例: " + k); }
+    save(); render(); $("#scan").focus();
+  }
+  function openCase(k) { cur = db.cases[k]; if (!cur) return; $("#cDate").value = cur.date; $("#cPid").value = cur.pid; $("#cProc").value = cur.proc; $("#cNcd").value = cur.ncd || ""; render(); }
+  function lookup(jan) { const m = M[jan]; return m ? { maker: m[0], name: m[1], size: m[2], shape: m[3], model: m[4], hoken: m[5], price: m[6] } : null; }
+
+  // 患者ID らしい文字列か（GS1 の製品情報を含まず、英数字 3〜20 桁）
+  const PID_RE = /^[A-Za-z0-9-]{3,20}$/;
+  function looksLikePid(text, p) {
+    const a = (p && p.ai) || {}; if (a["01"] || a["10"] || a["17"] || a["21"] || a["240"] || a["241"]) return false;
+    return PID_RE.test(String(text).trim());
+  }
+  function setPid(id) { $("#cPid").value = id; if (!$("#cDate").value) $("#cDate").value = today(); newCase(); log("患者ID を読み取りました: " + id + " → 症例を開始"); }
+  function addScan(text, quiet) {
+    const p = GS1.parse(text);
+    if (looksLikePid(text, p) || !p.ok) { if (PID_RE.test(String(text).trim())) { setPid(String(text).trim()); return null; } log("解釈できません: " + text); return null; }
+    if (!cur) newCase();
+    const r = GS1.toRecord(p); r.at = now();
+    const items = cur.items; const last = items[items.length - 1];
+    const within = (a) => a && (Date.now() - new Date(a.at).getTime()) / 1000 <= MERGE_SEC;
+    if (!r.gtin) {
+      if (within(last) && ((r.lot && last.lot === r.lot) || (r.ref && last.ref === r.ref) || (r.serial && last.serial === r.serial))) { if (!quiet) log("同じ内容の再読み取り（無視）: " + text); return last; }
+      if (within(last) && ((r.lot && !last.lot) || (r.ref && !last.ref) || (r.serial && !last.serial) || (r.expiry && !last.expiry))) {
+        if (r.lot && !last.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
+        last.raw += " | " + text; save(); render(); if (!quiet) log("直前の行に補完: " + text); return last;
+      }
+      log("GTIN の無い断片（どの製品か不明）: " + text + " → 製品のバーコードを先に読んでください"); return null;
+    }
+    const dup = [...items].reverse().find((x) => x.gtin === r.gtin && within(x) && (!x.lot || !r.lot || x.lot === r.lot));
+    if (dup) {
+      let changed = false;
+      if (r.lot && !dup.lot) { dup.lot = r.lot; changed = true; } if (r.expiry && !dup.expiry) { dup.expiry = r.expiry; dup.expiryRaw = r.expiryRaw; changed = true; } if (r.ref && !dup.ref) { dup.ref = r.ref; changed = true; } if (r.serial && !dup.serial) { dup.serial = r.serial; changed = true; }
+      if (changed) { dup.raw += " | " + text; save(); render(); if (!quiet) log("同じ製品の分割バーコードを統合: " + r.gtin); } else if (!quiet) log("同じ製品の再読み取り（無視）: " + r.gtin);
+      return dup;
+    }
+    const m = lookup(r.jan); r.master = m ? "○" : "×"; if (m) Object.assign(r, { maker: m.maker, name: m.name, size: m.size, shape: m.shape, model: m.model, hoken: m.hoken });
+    items.push(r); save(); render(true);
+    if (!quiet) log((m ? m.name + " " + (m.size || "") : "マスター未登録 JAN " + r.jan) + "  LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—"));
+    return r;
+  }
+
+  function notes(r) {
+    const n = [];
+    if (!r.lot) n.push(["LOTなし", "warn"]); if (!r.expiry) n.push(["期限なし", "warn"]); else if (cur && r.expiry < cur.date) n.push(["期限切れ", "bad"]);
+    if (r.gtinValid === false) n.push(["GTINチェック不一致", "bad"]); if (r.packLevel) n.push(["梱包単位GTIN(" + r.packLevel + ")", "warn"]);
+    (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
+  }
+  function render(flashLast) {
+    const sel = $("#caseSel"); sel.innerHTML = "";
+    Object.keys(db.cases).sort().reverse().forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = k + "（" + db.cases[k].items.length + "）"; sel.appendChild(o); });
+    if (cur) sel.value = caseKey(cur);
+    $("#caseStat").innerHTML = cur ? "現在の症例 <b>" + esc(caseKey(cur)) + "</b>" + (cur.ncd ? "　NCD/J-PCI <b>" + esc(cur.ncd) + "</b>" : "　NCD/J-PCI 番号は未入力") + "" : "症例が未選択です。上の欄を入れて「症例を開始」";
+    const tb = $("#tbl tbody"); tb.innerHTML = "";
+    if (!cur) { $("#tableStat").textContent = ""; return; }
+    const tag = (t, c) => '<span class="tag ' + c + '">' + esc(t) + "</span>";
+    cur.items.forEach((r, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + esc(r.maker) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
+        '<td class="mono">' + esc(r.jan) + '</td><td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
+        '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : tag("未登録", "bad")) + "</td><td>" +
+        notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
+      if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
+      tb.appendChild(tr);
+    });
+    const noLot = cur.items.filter((r) => !r.lot).length, noM = cur.items.filter((r) => r.master !== "○").length;
+    $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件" + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "");
+  }
+
+  const COLS = ["症例キー", "手技日", "施設内キー", "手技", "NCD_JPCI番号", "読取時刻", "GTIN", "JAN", "メーカー", "品名", "サイズ", "形状", "型番", "特定保険医療材料名", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "マスター照合", "注意", "原文字列"];
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, c.ncd || "", r.at, r.gtin, r.jan, r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hoken || "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.master, notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
+  function csv(rs) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
+  function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
+
+  // ---------- カメラ読み取り（BarcodeDetector → zxing-wasm）
+  const cam = { stream: null, timer: null, facing: "environment", lastText: "", lastAt: 0, reader: null, engine: "", mode: "device", ocr: null, ocrBusy: false };
+  const FORMATS = ["code_128", "data_matrix", "qr_code", "ean_13", "code_39", "itf", "ean_8", "codabar"];
+  async function getReader() {
+    if (cam.reader) return cam.reader;
+    if ("BarcodeDetector" in window) {
+      try { const sup = await BarcodeDetector.getSupportedFormats(); const f = FORMATS.filter((x) => sup.includes(x)); if (f.includes("code_128")) { const d = new BarcodeDetector({ formats: f }); cam.engine = "BarcodeDetector(" + f.join(",") + ")"; cam.reader = async (src) => (await d.detect(src)).map((b) => b.rawValue); return cam.reader; } } catch (e) {}
+    }
+    const mod = await import("https://cdn.jsdelivr.net/npm/zxing-wasm@2/dist/es/reader/index.js");
+    cam.engine = "zxing-wasm";
+    cam.reader = async (src) => { const c = document.createElement("canvas"); c.width = src.videoWidth; c.height = src.videoHeight; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(src, 0, 0); const id = g.getImageData(0, 0, c.width, c.height); const rs = await mod.readBarcodes(id, { formats: ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"], tryHarder: true, maxNumberOfSymbols: 4 }); return rs.map((r) => r.text); };
+    return cam.reader;
+  }
+  async function openCam() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { log("この環境ではカメラが使えません（https か localhost が必要）"); return; }
+    $("#cam").style.display = "block"; $("#camMsg").textContent = "カメラを起動しています…";
+    try {
+      cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      const v = $("#video"); v.srcObject = cam.stream; await v.play();
+      const track = cam.stream.getVideoTracks()[0]; const caps = track.getCapabilities ? track.getCapabilities() : {};
+      $("#btnTorch").style.display = caps.torch ? "inline-flex" : "none";
+      const read = await getReader(); $("#camMsg").textContent = "枠内にバーコードを入れてください（" + cam.engine + "）"; $("#camStat").textContent = "";
+      let busy = false;
+      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) {} busy = false; }, 250);
+    } catch (e) { $("#camMsg").textContent = "カメラを開けません: " + e.message; log("カメラ: " + e.message + "（iPad は Safari で https のページから開いてください）"); }
+  }
+  function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
+  function hit(t) {
+    if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
+    const r = addScan(t); const el = $("#camHit"); el.textContent = r ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") : "読めましたが解釈できません"; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 1600); if (navigator.vibrate) navigator.vibrate(60); beep(); }
+  function closeCam() { clearInterval(cam.timer); cam.timer = null; if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; $("#cam").style.display = "none"; }
+  let actx; function beep() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1760; g.gain.value = .08; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .09); } catch (e) {} }
+  $("#btnCam").onclick = openCam; $("#btnCamClose").onclick = closeCam;
+  $("#btnMode").onclick = () => setMode(cam.mode === "device" ? "pid" : "device");
+  // 数字の OCR（tesseract.js、CDN）。枠の範囲だけ切り出して数字のみ認識し、候補をボタンで示す
+  async function getOcr() {
+    if (cam.ocr) return cam.ocr;
+    await new Promise((ok, ng) => { const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"; s.onload = ok; s.onerror = ng; document.head.appendChild(s); });
+    const w = await Tesseract.createWorker("eng"); await w.setParameters({ tessedit_char_whitelist: "0123456789", tessedit_pageseg_mode: "7" }); cam.ocr = w; return w;
+  }
+  $("#btnOcr").onclick = async () => {
+    if (cam.ocrBusy) return; cam.ocrBusy = true; $("#camMsg").textContent = "数字を読んでいます…"; $("#ocrBox").innerHTML = "";
+    try {
+      const v = $("#video"); const fr = $("#cam .frame").getBoundingClientRect(); const vr = v.getBoundingClientRect();
+      const sx = v.videoWidth / vr.width, sy = v.videoHeight / vr.height;
+      const c = document.createElement("canvas"); c.width = Math.round(fr.width * sx); c.height = Math.round(fr.height * sy);
+      const g = c.getContext("2d"); g.drawImage(v, (fr.left - vr.left) * sx, (fr.top - vr.top) * sy, c.width, c.height, 0, 0, c.width, c.height);
+      const w = await getOcr(); const { data } = await w.recognize(c);
+      const cands = [...new Set((data.text.match(/\d{4,12}/g) || []))];
+      if (!cands.length) { $("#camMsg").textContent = "数字が見つかりません。枠を数字に合わせてもう一度"; }
+      else { $("#camMsg").textContent = "読めた数字をタップしてください"; cands.forEach((n) => { const b = document.createElement("button"); b.textContent = n; b.onclick = () => { setPid(n); closeCam(); setMode("device"); }; $("#ocrBox").appendChild(b); }); }
+    } catch (e) { $("#camMsg").textContent = "OCR に失敗: " + e.message; }
+    cam.ocrBusy = false;
+  };
+  $("#btnFlip").onclick = () => { cam.facing = cam.facing === "environment" ? "user" : "environment"; closeCam(); openCam(); };
+  $("#btnTorch").onclick = () => { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (t) { const on = !(t.getSettings().torch); t.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); } };
+  (async () => { if ("BarcodeDetector" in window) { try { const s = await BarcodeDetector.getSupportedFormats(); $("#camStat").textContent = "camera: native " + (s.includes("data_matrix") ? "1D+2D" : "1D"); } catch (e) {} } else $("#camStat").textContent = "camera: wasm"; })();
+
+  // ---------- イベント
+  $("#cDate").value = today();
+  $("#btnNewCase").onclick = newCase;
+  $("#btnToday").onclick = () => { $("#cDate").value = today(); };
+  $("#btnLoadCase").onclick = () => openCase($("#caseSel").value);
+  $("#btnDelCase").onclick = () => { const k = $("#caseSel").value; if (k && confirm(k + " を削除しますか？（元に戻せません）")) { delete db.cases[k]; if (cur && caseKey(cur) === k) cur = null; save(); render(); } };
+  $("#btnFocus").onclick = () => $("#scan").focus();
+  $("#scan").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const v = e.target.value; e.target.value = ""; if (v.trim()) addScan(v); } });
+  $("#scan").addEventListener("input", (e) => { const v = e.target.value; if (/[\r\n]/.test(v)) { e.target.value = ""; v.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); } });
+  $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); $("#paste").value = ""; };
+  $("#tbl").addEventListener("click", (e) => { const d = e.target.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); } });
+  $("#tbl").addEventListener("blur", (e) => { const f = e.target.getAttribute && e.target.getAttribute("data-f"); if (f && cur) { const r = cur.items[+e.target.getAttribute("data-i")]; const v = e.target.textContent.trim(); if (r[f] !== v) { r[f] = v; (r.warn = r.warn || []).includes("手入力") || r.warn.push("手入力"); save(); render(); } } }, true);
+  $("#btnCsv").onclick = () => cur && download(caseKey(cur) + ".csv", csv(rows(cur)), "text/csv");
+  $("#btnJson").onclick = () => cur && download(caseKey(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
+  $("#btnAllCsv").onclick = () => download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
+  $("#btnSelfTest").onclick = () => {
+    if (!cur) newCase();
+    ["(01)00763000632199(17)290328(10)0013360105", "(10)0013360105", "(240)ONYXNG35018JX", "(01)04987892138416(17)280731(10)260820(93)000372",
+      "(240)FG75431-2512(10)07A260701A(241)C2AIVL2512(17)280630(01)00195451000591", "]C101045473271236241729063010260709A10F", "(01)04547327123624(17)290630", "(10)260709A10F",
+      "(01)04987350607973(17)270900(10)241031", "(01)00845225002831(17)280821(10)0303861421(21)103442(90)300005381762", "(01)10850000491530(17)280228(10)602231-1", "(01)04544043107617(17)310131(10)PP25Z26", "(01)04987350462855(17)280831(10)250926"]
+      .forEach((x) => addScan(x, true));
+    log("自己テスト: 13本流しました（分割バーコードの統合込み）");
+  };
+  const first = Object.keys(db.cases).sort().reverse()[0]; if (first) openCase(first); else render();
+})();
+</script>
+</body>
+</html>
