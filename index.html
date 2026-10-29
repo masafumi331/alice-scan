@@ -115,6 +115,8 @@
       <div class="scanwrap"><input id="scan" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="バーコードリーダーで読む（Enter で確定）"></div>
       <div class="row" style="margin-top:14px">
         <button class="btn primary" id="btnCam">📷 カメラで読む（iPad / スマホ）</button>
+        <button class="btn" id="btnPhoto">📸 写真を撮って読む</button>
+        <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none">
         <button class="btn sm" id="btnFocus">リーダー入力にフォーカス</button>
         <button class="btn sm" id="btnSelfTest">自己テスト 13本</button>
       </div>
@@ -123,6 +125,7 @@
         <button class="btn sm" id="btnPaste" style="margin-top:8px">取り込む</button>
       </details>
       <div id="log"></div>
+      <div class="stat" id="diag" style="margin-top:6px"></div>
     </div>
     <div class="card">
       <p class="eyebrow">Export</p>
@@ -278,19 +281,67 @@
     cam.reader = async (src) => { const c = document.createElement("canvas"); c.width = src.videoWidth; c.height = src.videoHeight; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(src, 0, 0); const id = g.getImageData(0, 0, c.width, c.height); const rs = await mod.readBarcodes(id, { formats: ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"], tryHarder: true, maxNumberOfSymbols: 4 }); return rs.map((r) => r.text); };
     return cam.reader;
   }
+  const UA = navigator.userAgent || "";
+  const inApp = /Line\/|FBAN|FBAV|Instagram|Twitter|; wv\)|GSA\//.test(UA);
+  function camErrText(e) {
+    const n = e && e.name || "";
+    if (n === "NotAllowedError" || n === "PermissionDeniedError") return "カメラの許可がありません。" + (inApp ? "LINE・メール・Facebook などのアプリ内ブラウザではカメラが使えません。右上メニューから「Chrome で開く」「Safari で開く」を選んでください。" : "アドレスバーの🔒（または設定 → サイトの設定 → カメラ）でこのサイトのカメラを「許可」にしてから再読み込みしてください。");
+    if (n === "NotFoundError" || n === "DevicesNotFoundError") return "カメラが見つかりません（この端末にカメラが無いか、ブラウザから見えません）。";
+    if (n === "NotReadableError" || n === "TrackStartError") return "カメラを他のアプリが使用中です。他のカメラアプリを閉じてから再度お試しください。";
+    if (n === "OverconstrainedError") return "指定のカメラ（背面）が使えません。「カメラ切替」をお試しください。";
+    if (n === "SecurityError") return "このページは https でないためカメラを使えません。";
+    return (n ? n + ": " : "") + (e && e.message || String(e));
+  }
+  async function getStream() {
+    const tries = [
+      { video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
+      { video: { facingMode: cam.facing }, audio: false },
+      { video: true, audio: false },
+    ];
+    let err = null;
+    for (const c of tries) { try { return await navigator.mediaDevices.getUserMedia(c); } catch (e) { err = e; if (e && (e.name === "NotAllowedError" || e.name === "SecurityError")) break; } }
+    throw err || new Error("unknown");
+  }
   async function openCam() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { log("この環境ではカメラが使えません（https か localhost が必要）"); return; }
-    $("#cam").style.display = "block"; $("#camMsg").textContent = "カメラを起動しています…";
+    if (!window.isSecureContext) { log("このページは https ではないのでカメラが使えません"); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { log("この環境ではカメラAPIが使えません" + (inApp ? "（アプリ内ブラウザ）。Chrome / Safari で開いてください。「写真を撮って読む」なら使えます" : "。「写真を撮って読む」をお試しください")); return; }
+    $("#cam").style.display = "block"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = "";
     try {
-      cam.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
-      const v = $("#video"); v.srcObject = cam.stream; await v.play();
+      cam.stream = await getStream();
+      const v = $("#video"); v.srcObject = cam.stream;
+      try { await v.play(); } catch (e) { /* 自動再生が拒否されても次のフレームで再生される */ }
       const track = cam.stream.getVideoTracks()[0]; const caps = track.getCapabilities ? track.getCapabilities() : {};
       $("#btnTorch").style.display = caps.torch ? "inline-flex" : "none";
       const read = await getReader(); $("#camMsg").textContent = "枠内にバーコードを入れてください（" + cam.engine + "）"; $("#camStat").textContent = "";
       let busy = false;
       cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) {} busy = false; }, 250);
-    } catch (e) { $("#camMsg").textContent = "カメラを開けません: " + e.message; log("カメラ: " + e.message + "（iPad は Safari で https のページから開いてください）"); }
+    } catch (e) { const msg = camErrText(e); $("#camMsg").textContent = "カメラを開けません：" + msg; log("カメラ: " + msg + "  ／ 代わりに「写真を撮って読む」が使えます"); }
   }
+  // 写真を撮って読む（アプリ内ブラウザや権限が出ない端末向け。端末のカメラアプリで撮影→その画像を解読）
+  $("#btnPhoto").onclick = () => $("#photoIn").click();
+  $("#photoIn").addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    log("写真を解読しています…");
+    try {
+      const mod = await import("https://cdn.jsdelivr.net/npm/zxing-wasm@2/dist/es/reader/index.js");
+      const rs = await mod.readBarcodes(f, { formats: ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"], tryHarder: true, maxNumberOfSymbols: 8 });
+      if (!rs.length) { log("写真からバーコードを見つけられません。バーコードを大きく・ピントを合わせて撮り直してください"); return; }
+      const seen = new Set();
+      for (const r of rs) { if (seen.has(r.text)) continue; seen.add(r.text); addScan(r.text); }
+      beep();
+    } catch (err) { log("写真の解読に失敗: " + (err && err.message || err)); }
+  });
+  // 診断（カメラが動かないときの切り分け用）
+  (async () => {
+    const parts = [];
+    parts.push(window.isSecureContext ? "https OK" : "https NG");
+    parts.push(navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? "カメラAPI あり" : "カメラAPI なし");
+    if (inApp) parts.push("アプリ内ブラウザ（Chrome/Safari で開くと確実）");
+    try { if (navigator.permissions && navigator.permissions.query) { const s = await navigator.permissions.query({ name: "camera" }); parts.push("カメラ許可: " + ({ granted: "許可", denied: "拒否", prompt: "未確認" }[s.state] || s.state)); } } catch (e) {}
+    try { if ("BarcodeDetector" in window) { const s = await BarcodeDetector.getSupportedFormats(); parts.push("内蔵デコーダ " + (s.length ? s.length + "形式" : "なし→wasm")); } else parts.push("デコーダ wasm"); } catch (e) {}
+    const m = UA.match(/(Android [\d.]+|iPhone OS [\d_]+|iPad; CPU OS [\d_]+|Windows NT [\d.]+|Mac OS X [\d_]+)/); if (m) parts.push(m[1].replace(/_/g, "."));
+    $("#diag").textContent = "診断: " + parts.join(" / ");
+  })();
   function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
   function hit(t) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
