@@ -75,7 +75,10 @@
   #cam .frame::after { content:""; position:absolute; left:6%; right:6%; top:50%; height:2px; background:var(--cyan); box-shadow:0 0 14px var(--cyan); animation:line 1.6s ease-in-out infinite alternate; }
   @keyframes line { from { transform:translateY(-70px) } to { transform:translateY(70px) } }
   #cam .bar { position:absolute; left:0; right:0; bottom:0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); display:flex; gap:10px; align-items:center; background:linear-gradient(transparent, rgba(7,11,20,.9)); }
-  #cam .msg { position:absolute; left:0; right:0; top:calc(14px + env(safe-area-inset-top)); text-align:center; font-family:var(--mono); font-size:13px; letter-spacing:.1em; color:var(--cyan); }
+  #cam .msg { position:absolute; left:0; right:0; top:calc(14px + env(safe-area-inset-top)); text-align:center; font-family:var(--mono); font-size:13px; letter-spacing:.1em; color:var(--cyan); padding:0 16px; }
+  #cam .fail { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(92vw, 520px); background:rgba(11,18,33,.96); border:1px solid rgba(255,90,110,.5); border-radius:18px; padding:22px; font-size:16px; line-height:1.7; z-index:2; }
+  #cam .fail h3 { margin:0 0 8px; color:var(--coral); font-size:18px; }
+  #cam .fail .row { margin-top:14px; }
   #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:rgba(25,227,209,.92); color:#061018; padding:10px 18px; border-radius:999px; font-weight:700; max-width:90vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:opacity .2s; }
   #cam .hit.show { opacity:1; }
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
@@ -160,6 +163,7 @@
   <div class="frame"></div>
   <div class="msg" id="camMsg">カメラを起動しています…</div>
   <div class="hit" id="camHit"></div>
+  <div class="fail" id="camFail"><h3>カメラを開けませんでした</h3><div id="camFailMsg"></div><div class="row"><button class="btn primary" id="btnFailPhoto">📸 端末のカメラで撮影して読む</button><button class="btn" id="btnFailClose">閉じる</button></div></div>
   <div class="ocr" id="ocrBox"></div>
   <div class="bar">
     <button class="btn" id="btnTorch" style="display:none">💡 ライト</button>
@@ -303,9 +307,9 @@
     throw err || new Error("unknown");
   }
   async function openCam() {
-    if (!window.isSecureContext) { log("このページは https ではないのでカメラが使えません"); return; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { log("この環境ではカメラAPIが使えません" + (inApp ? "（アプリ内ブラウザ）。Chrome / Safari で開いてください。「写真を撮って読む」なら使えます" : "。「写真を撮って読む」をお試しください")); return; }
-    $("#cam").style.display = "block"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = "";
+    $("#cam").style.display = "block"; $("#camFail").style.display = "none"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = "";
+    if (!window.isSecureContext) { showFail("このページは https ではないためブラウザのカメラを使えません。"); return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showFail(inApp ? "LINE・メール・Facebook などのアプリ内ブラウザではブラウザのカメラが使えません。右上メニューの「Chrome で開く」「Safari で開く」で開き直すか、下のボタンで端末のカメラで撮影してください。" : "このブラウザではカメラAPIが使えません。下のボタンで端末のカメラで撮影してください。"); return; }
     try {
       cam.stream = await getStream();
       const v = $("#video"); v.srcObject = cam.stream;
@@ -313,10 +317,15 @@
       const track = cam.stream.getVideoTracks()[0]; const caps = track.getCapabilities ? track.getCapabilities() : {};
       $("#btnTorch").style.display = caps.torch ? "inline-flex" : "none";
       const read = await getReader(); $("#camMsg").textContent = "枠内にバーコードを入れてください（" + cam.engine + "）"; $("#camStat").textContent = "";
+      setTimeout(() => { if (cam.stream && v.readyState < 2) showFail("カメラは許可されましたが映像が届きません。他のカメラアプリを閉じるか、下のボタンで端末のカメラで撮影してください。"); }, 15000);
       let busy = false;
       cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) {} busy = false; }, 250);
-    } catch (e) { const msg = camErrText(e); $("#camMsg").textContent = "カメラを開けません：" + msg; log("カメラ: " + msg + "  ／ 代わりに「写真を撮って読む」が使えます"); }
+    } catch (e) { const msg = camErrText(e); showFail(msg); log("カメラ: " + msg); }
   }
+  function showFail(msg) { closeStream(); $("#camMsg").textContent = ""; $("#camFailMsg").textContent = msg; $("#camFail").style.display = "block"; $("#diag").textContent = "診断: " + msg; }
+  function closeStream() { clearInterval(cam.timer); cam.timer = null; if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
+  $("#btnFailPhoto").onclick = () => { closeCam(); $("#photoIn").click(); };
+  $("#btnFailClose").onclick = closeCam;
   // 写真を撮って読む（アプリ内ブラウザや権限が出ない端末向け。端末のカメラアプリで撮影→その画像を解読）
   $("#btnPhoto").onclick = () => $("#photoIn").click();
   $("#photoIn").addEventListener("change", async (e) => {
@@ -346,7 +355,7 @@
   function hit(t) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
     const r = addScan(t); const el = $("#camHit"); el.textContent = r ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") : "読めましたが解釈できません"; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 1600); if (navigator.vibrate) navigator.vibrate(60); beep(); }
-  function closeCam() { clearInterval(cam.timer); cam.timer = null; if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; $("#cam").style.display = "none"; }
+  function closeCam() { closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
   let actx; function beep() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1760; g.gain.value = .08; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .09); } catch (e) {} }
   $("#btnCam").onclick = openCam; $("#btnCamClose").onclick = closeCam;
   $("#btnMode").onclick = () => setMode(cam.mode === "device" ? "pid" : "device");
