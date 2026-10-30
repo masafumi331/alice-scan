@@ -261,7 +261,7 @@
     cur.items.forEach((r, i) => {
       const tr = document.createElement("tr");
       tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + esc(r.maker) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
-        "<td>" + (r.master === "○" ? (r.kubun === "償還不可" ? tag("償還不可", "warn") + " " + esc(r.hoken) : esc(r.hoken)) : "") + "</td>" +
+        "<td>" + (r.master === "○" ? (r.kubun === "償還不可" ? tag(r.hoken, "warn") : esc(r.hoken)) : "") + "</td>" +
         '<td class="mono" style="text-align:right">' + (r.master === "○" ? (r.kubun === "償還不可" ? "—" : (r.price > 0 ? "¥" + Number(r.price).toLocaleString() : tag("価格なし", "warn"))) : "") + "</td>" +
         '<td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
         '<td class="mono">' + esc(r.jan) + '</td><td class="mono">' + esc(r.ijicode) + "</td>" +
