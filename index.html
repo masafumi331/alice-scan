@@ -53,7 +53,7 @@
   #log { font-family:var(--mono); font-size:12px; color:var(--muted); max-height:96px; overflow:auto; white-space:pre-wrap; margin-top:10px; line-height:1.6; }
   #log .n { color:var(--cyan2); }
   .tablewrap { overflow:auto; max-height:62vh; border:1px solid var(--line); border-radius:12px; margin-top:12px; -webkit-overflow-scrolling:touch; }
-  table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:1200px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:1500px; }
   th, td { border-bottom:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:middle; white-space:nowrap; }
   th { position:sticky; top:0; background:#0c1424; font-family:var(--mono); font-weight:400; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); z-index:1; }
   tr:hover td { background:rgba(255,255,255,.025); }
@@ -134,13 +134,15 @@
       <p class="eyebrow">Export</p>
       <h2>レジストリ提出用の書き出し</h2>
       <div class="row">
-        <button class="btn" id="btnCsv">この症例を CSV</button>
+        <button class="btn primary" id="btnJimu">事務へ送る CSV（この症例）</button>
+        <button class="btn" id="btnJimuAll">事務へ送る CSV（全症例）</button>
+        <button class="btn" id="btnCsv">この症例を CSV（全項目）</button>
         <button class="btn" id="btnJson">この症例を JSON</button>
         <button class="btn" id="btnAllCsv">全症例を CSV</button>
       </div>
       <div class="stat" style="margin-top:14px; line-height:1.8">
         保存先：この端末のブラウザ内（Goodnet・NCD とは独立）。<br>
-        列：症例キー / 手技日 / 患者ID / GTIN / JAN / 品名 / LOT / 使用期限 / シリアル / REF / 原文字列。<br>
+        事務用：手技日 / 患者ID / 手技 / 医事コード / 償還区分 / 特定保険医療材料名 / 償還価格（償還不可は「償還不可」） / 数量 / 品名 / LOT / 使用期限。<br>
         GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。
       </div>
     </div>
@@ -151,7 +153,7 @@
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">使用デバイス</h2><div class="stat" id="tableStat" style="margin:0"></div></div>
     <div class="tablewrap">
     <table id="tbl">
-      <thead><tr><th>#</th><th>時刻</th><th>メーカー</th><th>品名</th><th>サイズ / 形状</th><th>JAN</th><th>LOT</th><th>使用期限</th><th>シリアル</th><th>REF</th><th>GTIN</th><th>照合</th><th>注意</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>時刻</th><th>メーカー</th><th>品名</th><th>サイズ / 形状</th><th>償還分類（特定保険医療材料名）</th><th>償還価格</th><th>LOT</th><th>使用期限</th><th>JAN</th><th>医事コード</th><th>シリアル</th><th>REF</th><th>GTIN</th><th>照合</th><th>注意</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
     </div>
@@ -203,7 +205,9 @@
     save(); render(); $("#scan").focus();
   }
   function openCase(k) { cur = db.cases[k]; if (!cur) return; $("#cDate").value = cur.date; $("#cPid").value = cur.pid; $("#cProc").value = cur.proc; render(); }
-  function lookup(jan) { const m = M[jan]; return m ? { maker: m[0], name: m[1], size: m[2], shape: m[3], model: m[4], hoken: m[5], price: m[6] } : null; }
+  function lookup(jan) { const m = M[jan]; if (!m) return null; const hoken = m[5] || ""; const price = (typeof m[6] === "number") ? m[6] : (parseInt(String(m[6] || "").replace(/[^\d]/g, ""), 10) || 0);
+    const notCovered = /^償還不可/.test(hoken); const kubun = notCovered ? "償還不可" : (price > 0 ? "償還可" : "要確認");
+    return { maker: m[0], name: m[1], size: m[2], shape: m[3], model: m[4], hoken: notCovered ? hoken.replace(/^償還不可[\s\u3000]*/, "償還不可（") + "）" : hoken, price, kubun, ijicode: m[7] || "", hinban: m[8] || "" }; }
 
   // 患者ID らしい文字列か（GS1 の製品情報を含まず、英数字 3〜20 桁）
   const PID_RE = /^[A-Za-z0-9-]{3,20}$/;
@@ -234,7 +238,7 @@
       if (changed) { dup.raw += " | " + text; save(); render(); if (!quiet) log("同じ製品の分割バーコードを統合: " + r.gtin); } else if (!quiet) log("同じ製品の再読み取り（無視）: " + r.gtin);
       return dup;
     }
-    const m = lookup(r.jan); r.master = m ? "○" : "×"; if (m) Object.assign(r, { maker: m.maker, name: m.name, size: m.size, shape: m.shape, model: m.model, hoken: m.hoken });
+    const m = lookup(r.jan); r.master = m ? "○" : "×"; if (m) Object.assign(r, { maker: m.maker, name: m.name, size: m.size, shape: m.shape, model: m.model, hoken: m.hoken, price: m.price, kubun: m.kubun, ijicode: m.ijicode, hinban: m.hinban });
     items.push(r); save(); render(true);
     if (!quiet) log((m ? m.name + " " + (m.size || "") : "マスター未登録 JAN " + r.jan) + "  LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—"));
     return r;
@@ -257,19 +261,26 @@
     cur.items.forEach((r, i) => {
       const tr = document.createElement("tr");
       tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + esc(r.maker) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
-        '<td class="mono">' + esc(r.jan) + '</td><td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
+        "<td>" + (r.master === "○" ? (r.kubun === "償還不可" ? tag("償還不可", "warn") + " " + esc(r.hoken) : esc(r.hoken)) : "") + "</td>" +
+        '<td class="mono" style="text-align:right">' + (r.master === "○" ? (r.kubun === "償還不可" ? "—" : (r.price > 0 ? "¥" + Number(r.price).toLocaleString() : tag("価格なし", "warn"))) : "") + "</td>" +
+        '<td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
+        '<td class="mono">' + esc(r.jan) + '</td><td class="mono">' + esc(r.ijicode) + "</td>" +
         '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : tag("未登録", "bad")) + "</td><td>" +
         notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
       tb.appendChild(tr);
     });
     const noLot = cur.items.filter((r) => !r.lot).length, noM = cur.items.filter((r) => r.master !== "○").length;
-    $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件" + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "");
+    const nc = cur.items.filter((r) => r.kubun === "償還不可").length, sum = cur.items.reduce((a, r) => a + (r.kubun === "償還可" ? (r.price || 0) : 0), 0);
+    $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件　償還合計 <b>¥" + sum.toLocaleString() + "</b>" + (nc ? "　償還不可 <b>" + nc + "</b>" : "") + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "");
   }
 
-  const COLS = ["症例キー", "手技日", "施設内キー", "手技", "読取時刻", "GTIN", "JAN", "メーカー", "品名", "サイズ", "形状", "型番", "特定保険医療材料名", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "マスター照合", "注意", "原文字列"];
-  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, r.at, r.gtin, r.jan, r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hoken || "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.master, notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
-  function csv(rs) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
+  const COLS = ["症例キー", "手技日", "患者ID", "手技", "読取時刻", "GTIN", "JAN", "医事コード", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "償還区分", "特定保険医療材料名", "償還価格", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "マスター照合", "注意", "原文字列"];
+  // 事務（医事課）向け: 請求に要る列だけ、1行1個
+  const JCOLS = ["手技日", "患者ID", "手技", "医事コード", "償還区分", "特定保険医療材料名（機能区分）", "償還価格", "数量", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "JAN", "LOT", "使用期限", "備考"];
+  function jrows(c) { return c.items.map((r) => [c.date, c.pid, c.proc, r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, r.at, r.gtin, r.jan, r.ijicode || "", r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.master, notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
+  function csv(rs, cols) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [cols || COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 
   // ---------- カメラ読み取り（BarcodeDetector → zxing-wasm）
@@ -396,6 +407,8 @@
   $("#tbl").addEventListener("click", (e) => { const d = e.target.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); } });
   $("#tbl").addEventListener("blur", (e) => { const f = e.target.getAttribute && e.target.getAttribute("data-f"); if (f && cur) { const r = cur.items[+e.target.getAttribute("data-i")]; const v = e.target.textContent.trim(); if (r[f] !== v) { r[f] = v; (r.warn = r.warn || []).includes("手入力") || r.warn.push("手入力"); save(); render(); } } }, true);
   $("#btnCsv").onclick = () => cur && download(caseKey(cur) + ".csv", csv(rows(cur)), "text/csv");
+  $("#btnJimu").onclick = () => cur && download("事務_" + caseKey(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
+  $("#btnJimuAll").onclick = () => download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
   $("#btnJson").onclick = () => cur && download(caseKey(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
   $("#btnAllCsv").onclick = () => download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
   $("#btnSelfTest").onclick = () => {
