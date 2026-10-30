@@ -208,6 +208,12 @@
     save(); render(); $("#scan").focus();
   }
   function openCase(k) { cur = db.cases[k]; if (!cur) return; $("#cDate").value = cur.date; $("#cPid").value = cur.pid; $("#cProc").value = cur.proc; render(); }
+  let REFIDX = null;
+  function byRef(ref) {
+    if (!ref) return null;
+    if (!REFIDX) { REFIDX = {}; for (const j of Object.keys(M)) { const v = M[j]; for (const k of [v[8], v[4]]) { if (!k) continue; const s = String(k).trim().toUpperCase(); REFIDX[s] = (s in REFIDX) ? null : j; } } }
+    return REFIDX[String(ref).trim().toUpperCase()] || null;
+  }
   function lookup(jan) { const m = M[jan]; if (!m) return null; const hoken = m[5] || ""; const price = (typeof m[6] === "number") ? m[6] : (parseInt(String(m[6] || "").replace(/[^\d]/g, ""), 10) || 0);
     const notCovered = /^償還不可/.test(hoken); const kubun = notCovered ? "償還不可" : (price > 0 ? "償還可" : "要確認");
     return { maker: m[0], name: m[1], size: m[2], shape: m[3], model: m[4], hoken: notCovered ? hoken.replace(/^償還不可[\s\u3000]*/, "償還不可（") + "）" : hoken, price, kubun, ijicode: m[7] || "", hinban: m[8] || "" }; }
@@ -232,6 +238,14 @@
         if (r.lot && !last.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
         last.raw += " | " + text; save(); render(); if (!quiet) log("直前の行に補完: " + text); return last;
       }
+      // REF（品番）がマスターで一意に決まるなら、それで製品を特定する（メドトロニックの分割バーコードなど）
+      const jr = byRef(r.ref);
+      if (jr) {
+        r.jan = jr; r.gtin = jr.padStart(14, "0"); r.refResolved = true;
+        const mr = lookup(jr); r.master = mr ? "○" : "×"; if (mr) Object.assign(r, { maker: mr.maker, name: mr.name, size: mr.size, shape: mr.shape, model: mr.model, hoken: mr.hoken, price: mr.price, kubun: mr.kubun, ijicode: mr.ijicode, hinban: mr.hinban });
+        items.push(r); save(); render(true);
+        if (!quiet) log((mr ? mr.name + " " + (mr.size || "") : "JAN " + jr) + "  LOT=" + (r.lot || "—") + "（REF " + r.ref + " から特定。(01) 付きがあれば続けて読むと期限が入ります）"); return r;
+      }
       // 先に LOT/REF だけ読まれた: 仮の行を作って受け、あとから (01) 付きのバーコードで埋める
       r.master = "—"; r.pending = true; items.push(r); save(); render(true);
       if (!quiet) log("LOT/REF を先に読みました（" + text + "）→ 同じ製品の (01) 付きバーコードも読んでください"); return r;
@@ -249,6 +263,7 @@
     if (dup) {
       let changed = false;
       if (r.lot && !dup.lot) { dup.lot = r.lot; changed = true; } if (r.expiry && !dup.expiry) { dup.expiry = r.expiry; dup.expiryRaw = r.expiryRaw; changed = true; } if (r.ref && !dup.ref) { dup.ref = r.ref; changed = true; } if (r.serial && !dup.serial) { dup.serial = r.serial; changed = true; }
+      if (dup.refResolved) { dup.refResolved = false; dup.gtin = r.gtin; dup.packLevel = r.packLevel; changed = true; }
       if (changed) { dup.raw += " | " + text; save(); render(); if (!quiet) log("同じ製品の分割バーコードを統合: " + r.gtin); } else if (!quiet) log("同じ製品の再読み取り（無視）: " + r.gtin);
       return dup;
     }
@@ -261,6 +276,7 @@
   function notes(r) {
     const n = [];
     if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
+    if (r.refResolved) n.push(["REFから特定((01)未読)", "warn"]);
     if (!r.lot) n.push(["LOTなし", "warn"]); if (!r.expiry) n.push(["期限なし", "warn"]); else if (cur && r.expiry < cur.date) n.push(["期限切れ", "bad"]);
     if (r.gtinValid === false) n.push(["GTINチェック不一致", "bad"]); if (r.packLevel) n.push(["梱包単位GTIN(" + r.packLevel + ")", "warn"]);
     (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
