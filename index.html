@@ -190,9 +190,15 @@
   const nM = Object.keys(M).length;
   $("#masterStat").innerHTML = (nM ? '<span class="dot"></span>辞書 ' + nM.toLocaleString() + ' 件' : '<span class="dot off"></span>辞書なし（master_jan.js）');
 
+  const VERSION = "2026-10-30.6";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
-  function save() { try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
+  function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
+  function latestCase() { let best = null, bt = ""; for (const k of Object.keys(db.cases)) { const u = db.cases[k].updated || db.cases[k].created || ""; if (u > bt) { bt = u; best = k; } } return best || Object.keys(db.cases).sort().reverse()[0]; }
+  // 別のタブ・別の画面で読んだ分を取り込む（localStorage は共有だがメモリ上の db は各タブ別）
+  function refreshDb() { const k = cur ? caseKey(cur) : null; db = load(); cur = (k && db.cases[k]) || null; if (!cur) { const f = latestCase(); if (f) openCase(f); else render(); } else render(); }
+  window.addEventListener("storage", (e) => { if (e.key === LS) refreshDb(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !cam.stream) refreshDb(); });
   function today() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function now() { return new Date().toISOString(); }
   function hhmm(iso) { const d = new Date(iso); return [d.getHours(), d.getMinutes(), d.getSeconds()].map((x) => String(x).padStart(2, "0")).join(":"); }
@@ -434,7 +440,7 @@
     const m = UA.match(/(Android [\d.]+|iPhone OS [\d_]+|iPad; CPU OS [\d_]+|Windows NT [\d.]+|Mac OS X [\d_]+)/); if (m) parts.push(m[1].replace(/_/g, "."));
     cam.diagBase = parts.join(" / "); $("#diag").textContent = "診断: " + cam.diagBase;
   })();
-  function diagText() { return ["診断: " + (cam.diagBase || ""), cam.engine ? "エンジン: " + cam.engine : "", cam.camInfo ? "カメラ: " + cam.camInfo : "", cam.frames ? "解析 " + cam.frames + " 回 " + (cam.ms || 0) + "ms" : "", cam.loadErr || "", cam.lastErr || "", "UA: " + UA].filter(Boolean).join("\n"); }
+  function diagText() { return ["版 " + VERSION, "診断: " + (cam.diagBase || ""), cam.engine ? "エンジン: " + cam.engine : "", cam.camInfo ? "カメラ: " + cam.camInfo : "", cam.frames ? "解析 " + cam.frames + " 回 " + (cam.ms || 0) + "ms" : "", cam.loadErr || "", cam.lastErr || "", "UA: " + UA].filter(Boolean).join("\n"); }
   $("#btnDiag").onclick = async () => { const s = diagText(); try { await navigator.clipboard.writeText(s); log("診断をコピーしました。LINE やメールに貼り付けて送ってください"); } catch (e) { log(s.replace(/\n/g, " ／ ")); } };
   function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
   function hit(t) {
@@ -473,7 +479,7 @@
   $("#cam").addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
   document.addEventListener("gesturestart", (e) => { if ($("#cam").style.display === "block") e.preventDefault(); });
   $("#btnTorch").onclick = () => { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (t) { const on = !(t.getSettings().torch); t.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); } };
-  $("#camStat").textContent = "";
+  $("#camStat").textContent = "v" + VERSION;
 
   // ---------- イベント
   $("#cDate").value = today();
@@ -500,7 +506,7 @@
       .forEach((x) => addScan(x, true));
     log("自己テスト: 13本流しました（分割バーコードの統合込み）");
   };
-  const first = Object.keys(db.cases).sort().reverse()[0]; if (first) openCase(first); else render();
+  const first = latestCase(); if (first) openCase(first); else render();
   // デバッグ用（ブラウザのコンソールから解読を試すため）
   window.AliceScan = { getReader, cam, diagText, addScan };
 })();
