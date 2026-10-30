@@ -79,7 +79,7 @@
   #cam .fail { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(92vw, 520px); background:rgba(11,18,33,.96); border:1px solid rgba(255,90,110,.5); border-radius:18px; padding:22px; font-size:16px; line-height:1.7; z-index:2; }
   #cam .fail h3 { margin:0 0 8px; color:var(--coral); font-size:18px; }
   #cam .fail .row { margin-top:14px; }
-  #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:rgba(25,227,209,.92); color:#061018; padding:10px 18px; border-radius:999px; font-weight:700; max-width:90vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:opacity .2s; }
+  #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:rgba(25,227,209,.92); color:#061018; padding:10px 18px; border-radius:22px; font-weight:700; max-width:90vw; text-align:center; opacity:0; transition:opacity .2s; }
   #cam .hit.show { opacity:1; }
   #cam .live { position:absolute; left:0; right:0; bottom:calc(84px + env(safe-area-inset-bottom)); text-align:center; font-family:var(--mono); font-size:12px; color:var(--muted); pointer-events:none; }
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
@@ -232,7 +232,18 @@
         if (r.lot && !last.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
         last.raw += " | " + text; save(); render(); if (!quiet) log("直前の行に補完: " + text); return last;
       }
-      log("GTIN の無い断片（どの製品か不明）: " + text + " → 製品のバーコードを先に読んでください"); return null;
+      // 先に LOT/REF だけ読まれた: 仮の行を作って受け、あとから (01) 付きのバーコードで埋める
+      r.master = "—"; r.pending = true; items.push(r); save(); render(true);
+      if (!quiet) log("LOT/REF を先に読みました（" + text + "）→ 同じ製品の (01) 付きバーコードも読んでください"); return r;
+    }
+    // 直前が「製品バーコード待ち」の行なら、その行に GTIN を入れて完成させる
+    if (last && !last.gtin && within(last)) {
+      last.gtin = r.gtin; last.jan = r.jan; last.packLevel = r.packLevel; last.pending = false;
+      if (r.lot && !last.lot) last.lot = r.lot; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; } if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial;
+      const m2 = lookup(last.jan); last.master = m2 ? "○" : "×"; if (m2) Object.assign(last, { maker: m2.maker, name: m2.name, size: m2.size, shape: m2.shape, model: m2.model, hoken: m2.hoken, price: m2.price, kubun: m2.kubun, ijicode: m2.ijicode, hinban: m2.hinban });
+      last.raw += " | " + text; save(); render(true);
+      if (!quiet) log((m2 ? m2.name + " " + (m2.size || "") : "マスター未登録 JAN " + last.jan) + "  LOT=" + (last.lot || "—") + "  期限=" + (last.expiry || "—") + "（分割バーコードを統合）");
+      return last;
     }
     const dup = [...items].reverse().find((x) => x.gtin === r.gtin && within(x) && (!x.lot || !r.lot || x.lot === r.lot));
     if (dup) {
@@ -249,6 +260,7 @@
 
   function notes(r) {
     const n = [];
+    if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
     if (!r.lot) n.push(["LOTなし", "warn"]); if (!r.expiry) n.push(["期限なし", "warn"]); else if (cur && r.expiry < cur.date) n.push(["期限切れ", "bad"]);
     if (r.gtinValid === false) n.push(["GTINチェック不一致", "bad"]); if (r.packLevel) n.push(["梱包単位GTIN(" + r.packLevel + ")", "warn"]);
     (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
@@ -268,7 +280,7 @@
         '<td class="mono" style="text-align:right">' + (r.master === "○" ? (r.kubun === "償還不可" ? "—" : (r.price > 0 ? "¥" + Number(r.price).toLocaleString() : tag("価格なし", "warn"))) : "") + "</td>" +
         '<td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
         '<td class="mono">' + esc(r.jan) + '</td><td class="mono">' + esc(r.ijicode) + "</td>" +
-        '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : tag("未登録", "bad")) + "</td><td>" +
+        '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : (!r.gtin ? tag("GTIN待ち", "warn") : tag("未登録", "bad"))) + "</td><td>" +
         notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
       tb.appendChild(tr);
@@ -411,7 +423,9 @@
   function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
   function hit(t) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
-    const r = addScan(t); const el = $("#camHit"); el.textContent = r ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") : "読めましたが解釈できません"; el.classList.add("show"); setTimeout(() => el.classList.remove("show"), 1600); if (navigator.vibrate) navigator.vibrate(60); beep(); }
+    const r = addScan(t); const el = $("#camHit");
+    el.textContent = !r ? "読めましたが解釈できません: " + String(t).slice(0, 40) : (!r.gtin ? "LOT/REF を読みました → 同じ製品の (01) 付きバーコードも読んでください" : (r.name || r.jan || "") + "  LOT " + (r.lot || "—"));
+    el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); if (navigator.vibrate) navigator.vibrate(60); beep(); }
   function closeCam() { closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
   let actx; function beep() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1760; g.gain.value = .08; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .09); } catch (e) {} }
   $("#btnCam").onclick = openCam; $("#btnCamClose").onclick = closeCam;
