@@ -81,6 +81,7 @@
   #cam .fail .row { margin-top:14px; }
   #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:rgba(25,227,209,.92); color:#061018; padding:10px 18px; border-radius:999px; font-weight:700; max-width:90vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:opacity .2s; }
   #cam .hit.show { opacity:1; }
+  #cam .live { position:absolute; left:0; right:0; bottom:calc(84px + env(safe-area-inset-bottom)); text-align:center; font-family:var(--mono); font-size:12px; color:var(--muted); pointer-events:none; }
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
   #cam .ocr button { font-family:var(--mono); font-size:18px; letter-spacing:.06em; padding:10px 16px; border-radius:12px; border:1px solid var(--cyan); background:rgba(7,11,20,.85); color:var(--cyan); }
   .ecg { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:0; opacity:.35; pointer-events:none; }
@@ -128,7 +129,7 @@
         <button class="btn sm" id="btnPaste" style="margin-top:8px">取り込む</button>
       </details>
       <div id="log"></div>
-      <div class="stat" id="diag" style="margin-top:6px"></div>
+      <div class="stat" style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap"><span id="diag"></span><button class="btn" id="btnDiag" style="padding:4px 10px; font-size:12px">📋 診断をコピー</button></div>
     </div>
     <div class="card">
       <p class="eyebrow">Export</p>
@@ -165,6 +166,7 @@
   <div class="frame"></div>
   <div class="msg" id="camMsg">カメラを起動しています…</div>
   <div class="hit" id="camHit"></div>
+  <div class="live" id="camLive"></div>
   <div class="fail" id="camFail"><h3>カメラを開けませんでした</h3><div id="camFailMsg"></div><div class="row"><button class="btn primary" id="btnFailPhoto">📸 端末のカメラで撮影して読む</button><button class="btn" id="btnFailClose">閉じる</button></div></div>
   <div class="ocr" id="ocrBox"></div>
   <div class="bar">
@@ -286,14 +288,50 @@
   // ---------- カメラ読み取り（BarcodeDetector → zxing-wasm）
   const cam = { stream: null, timer: null, facing: "environment", lastText: "", lastAt: 0, reader: null, engine: "", mode: "device", ocr: null, ocrBusy: false };
   const FORMATS = ["code_128", "data_matrix", "qr_code", "ean_13", "code_39", "itf", "ean_8", "codabar"];
+  const ZX_URL = "https://cdn.jsdelivr.net/npm/zxing-wasm@2/dist/es/reader/index.js";
+  const ZX_FORMATS = ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"];
+  // 枠（.frame）の範囲を映像のピクセル座標に変換（video は object-fit:cover なので拡大・切り取りを考慮）
+  function frameRect(v, margin) {
+    const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) return null;
+    const vr = v.getBoundingClientRect(), fr = $("#cam .frame").getBoundingClientRect();
+    if (!(vr.width > 0 && vr.height > 0 && fr.width > 0 && fr.height > 0)) return null;
+    const sc = Math.max(vr.width / vw, vr.height / vh); const ox = vr.left + (vr.width - vw * sc) / 2, oy = vr.top + (vr.height - vh * sc) / 2;
+    const m = margin || 0;
+    let x0 = Math.floor((fr.left - fr.width * m - ox) / sc), y0 = Math.floor((fr.top - fr.height * m - oy) / sc), x1 = Math.ceil((fr.right + fr.width * m - ox) / sc), y1 = Math.ceil((fr.bottom + fr.height * m - oy) / sc);
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(vw, x1); y1 = Math.min(vh, y1);
+    if (x1 - x0 < 40 || y1 - y0 < 40) return null;
+    return { sx: x0, sy: y0, sw: x1 - x0, sh: y1 - y0 };
+  }
+  // 解析用の画像を作る。奇数回は枠の周辺だけ（高解像度・速い）、偶数回は全体を縮小（枠から外れていても拾う）
+  const work = document.createElement("canvas"); const wg = work.getContext("2d", { willReadFrequently: true });
+  function grab(v, n) {
+    const vw = v.videoWidth, vh = v.videoHeight; if (!vw || !vh) return null;
+    let r = (n % 2 === 0) ? null : frameRect(v, 0.2);
+    if (!r) r = { sx: 0, sy: 0, sw: vw, sh: vh };
+    const k = Math.min(1, 2200 / Math.max(r.sw, r.sh)); // カメラ映像（1080p 以下）は縮小しない
+    work.width = Math.round(r.sw * k); work.height = Math.round(r.sh * k); if (!(work.width > 0 && work.height > 0)) return null;
+    wg.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, work.width, work.height);
+    return work;
+  }
   async function getReader() {
     if (cam.reader) return cam.reader;
-    if ("BarcodeDetector" in window) {
-      try { const sup = await BarcodeDetector.getSupportedFormats(); const f = FORMATS.filter((x) => sup.includes(x)); if (f.includes("code_128")) { const d = new BarcodeDetector({ formats: f }); cam.engine = "BarcodeDetector(" + f.join(",") + ")"; cam.reader = async (src) => (await d.detect(src)).map((b) => b.rawValue); return cam.reader; } } catch (e) {}
-    }
-    const mod = await import("https://cdn.jsdelivr.net/npm/zxing-wasm@2/dist/es/reader/index.js");
-    cam.engine = "zxing-wasm";
-    cam.reader = async (src) => { const c = document.createElement("canvas"); c.width = src.videoWidth; c.height = src.videoHeight; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(src, 0, 0); const id = g.getImageData(0, 0, c.width, c.height); const rs = await mod.readBarcodes(id, { formats: ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"], tryHarder: true, maxNumberOfSymbols: 4 }); return rs.map((r) => r.text); };
+    let native = null;
+    if ("BarcodeDetector" in window) { try { const sup = await BarcodeDetector.getSupportedFormats(); const f = FORMATS.filter((x) => sup.includes(x)); if (f.includes("code_128")) native = new BarcodeDetector({ formats: f }); } catch (e) {} }
+    let mod = null;
+    try { mod = await import(ZX_URL); cam.engine = "zxing-wasm"; } catch (e) { cam.loadErr = "wasm 読み込み失敗: " + (e && e.message || e); }
+    if (!mod && !native) throw new Error("解読エンジンを読み込めません（通信を確認してください）。" + (cam.loadErr || ""));
+    if (!mod) cam.engine = "BarcodeDetector";
+    cam.nativeErr = 0;
+    cam.reader = async (src) => {
+      cam.frames = (cam.frames || 0) + 1; const t0 = performance.now();
+      const img = grab(src, cam.frames); if (!img) return [];
+      let out = [];
+      if (mod) { const id = wg.getImageData(0, 0, img.width, img.height); const rs = await mod.readBarcodes(id, { formats: ZX_FORMATS, tryHarder: true, maxNumberOfSymbols: 4 }); out = rs.map((r) => r.text); }
+      if (!out.length && native && cam.nativeErr < 3) { try { out = (await native.detect(img)).map((b) => b.rawValue); } catch (e) { cam.nativeErr++; cam.lastErr = "BarcodeDetector: " + (e && e.message || e); } }
+      cam.ms = Math.round(performance.now() - t0);
+      if (cam.frames % 4 === 0) $("#camLive").textContent = cam.engine + " 解析 " + cam.frames + " 回 " + cam.ms + "ms " + img.width + "x" + img.height;
+      return out;
+    };
     return cam.reader;
   }
   const UA = navigator.userAgent || "";
@@ -327,13 +365,16 @@
       try { await v.play(); } catch (e) { /* 自動再生が拒否されても次のフレームで再生される */ }
       const track = cam.stream.getVideoTracks()[0]; const caps = track.getCapabilities ? track.getCapabilities() : {};
       $("#btnTorch").style.display = caps.torch ? "inline-flex" : "none";
-      const read = await getReader(); $("#camMsg").textContent = "枠内にバーコードを入れてください（" + cam.engine + "）"; $("#camStat").textContent = "";
+      try { if (caps.focusMode && caps.focusMode.includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch (e) {}
+      const st = track.getSettings ? track.getSettings() : {}; cam.camInfo = (st.width || "?") + "x" + (st.height || "?") + (track.label ? " " + track.label : "");
+      let read; try { read = await getReader(); } catch (e) { showFail((e && e.message || e) + " 下のボタンで端末のカメラで撮影してください。"); return; }
+      $("#camMsg").textContent = "枠内にバーコードを入れてください（" + cam.engine + "）"; $("#camLive").textContent = "起動中 " + cam.camInfo; cam.frames = 0;
       setTimeout(() => { if (cam.stream && v.readyState < 2) showFail("カメラは許可されましたが映像が届きません。他のカメラアプリを閉じるか、下のボタンで端末のカメラで撮影してください。"); }, 15000);
       let busy = false;
-      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) {} busy = false; }, 250);
+      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) { cam.lastErr = "解析: " + (e && e.message || e); $("#camLive").textContent = cam.lastErr; } busy = false; }, 200);
     } catch (e) { const msg = camErrText(e); showFail(msg); log("カメラ: " + msg); }
   }
-  function showFail(msg) { closeStream(); $("#camMsg").textContent = ""; $("#camFailMsg").textContent = msg; $("#camFail").style.display = "block"; $("#diag").textContent = "診断: " + msg; }
+  function showFail(msg) { closeStream(); cam.lastErr = msg; $("#camMsg").textContent = ""; $("#camFailMsg").textContent = msg; $("#camFail").style.display = "block"; $("#diag").textContent = "診断: " + msg; }
   function closeStream() { clearInterval(cam.timer); cam.timer = null; if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
   $("#btnFailPhoto").onclick = () => { closeCam(); $("#photoIn").click(); };
   $("#btnFailClose").onclick = closeCam;
@@ -360,8 +401,10 @@
     try { if (navigator.permissions && navigator.permissions.query) { const s = await navigator.permissions.query({ name: "camera" }); parts.push("カメラ許可: " + ({ granted: "許可", denied: "拒否", prompt: "未確認" }[s.state] || s.state)); } } catch (e) {}
     try { if ("BarcodeDetector" in window) { const s = await BarcodeDetector.getSupportedFormats(); parts.push("内蔵デコーダ " + (s.length ? s.length + "形式" : "なし→wasm")); } else parts.push("デコーダ wasm"); } catch (e) {}
     const m = UA.match(/(Android [\d.]+|iPhone OS [\d_]+|iPad; CPU OS [\d_]+|Windows NT [\d.]+|Mac OS X [\d_]+)/); if (m) parts.push(m[1].replace(/_/g, "."));
-    $("#diag").textContent = "診断: " + parts.join(" / ");
+    cam.diagBase = parts.join(" / "); $("#diag").textContent = "診断: " + cam.diagBase;
   })();
+  function diagText() { return ["診断: " + (cam.diagBase || ""), cam.engine ? "エンジン: " + cam.engine : "", cam.camInfo ? "カメラ: " + cam.camInfo : "", cam.frames ? "解析 " + cam.frames + " 回 " + (cam.ms || 0) + "ms" : "", cam.loadErr || "", cam.lastErr || "", "UA: " + UA].filter(Boolean).join("\n"); }
+  $("#btnDiag").onclick = async () => { const s = diagText(); try { await navigator.clipboard.writeText(s); log("診断をコピーしました。LINE やメールに貼り付けて送ってください"); } catch (e) { log(s.replace(/\n/g, " ／ ")); } };
   function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
   function hit(t) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
@@ -379,10 +422,9 @@
   $("#btnOcr").onclick = async () => {
     if (cam.ocrBusy) return; cam.ocrBusy = true; $("#camMsg").textContent = "数字を読んでいます…"; $("#ocrBox").innerHTML = "";
     try {
-      const v = $("#video"); const fr = $("#cam .frame").getBoundingClientRect(); const vr = v.getBoundingClientRect();
-      const sx = v.videoWidth / vr.width, sy = v.videoHeight / vr.height;
-      const c = document.createElement("canvas"); c.width = Math.round(fr.width * sx); c.height = Math.round(fr.height * sy);
-      const g = c.getContext("2d"); g.drawImage(v, (fr.left - vr.left) * sx, (fr.top - vr.top) * sy, c.width, c.height, 0, 0, c.width, c.height);
+      const v = $("#video"); const r = frameRect(v, 0) || { sx: 0, sy: 0, sw: v.videoWidth, sh: v.videoHeight };
+      const c = document.createElement("canvas"); c.width = r.sw; c.height = r.sh;
+      const g = c.getContext("2d"); g.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, r.sw, r.sh);
       const w = await getOcr(); const { data } = await w.recognize(c);
       const cands = [...new Set((data.text.match(/\d{4,12}/g) || []))];
       if (!cands.length) { $("#camMsg").textContent = "数字が見つかりません。枠を数字に合わせてもう一度"; }
@@ -392,7 +434,7 @@
   };
   $("#btnFlip").onclick = () => { cam.facing = cam.facing === "environment" ? "user" : "environment"; closeCam(); openCam(); };
   $("#btnTorch").onclick = () => { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (t) { const on = !(t.getSettings().torch); t.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); } };
-  (async () => { if ("BarcodeDetector" in window) { try { const s = await BarcodeDetector.getSupportedFormats(); $("#camStat").textContent = "camera: native " + (s.includes("data_matrix") ? "1D+2D" : "1D"); } catch (e) {} } else $("#camStat").textContent = "camera: wasm"; })();
+  $("#camStat").textContent = "";
 
   // ---------- イベント
   $("#cDate").value = today();
@@ -420,6 +462,8 @@
     log("自己テスト: 13本流しました（分割バーコードの統合込み）");
   };
   const first = Object.keys(db.cases).sort().reverse()[0]; if (first) openCase(first); else render();
+  // デバッグ用（ブラウザのコンソールから解読を試すため）
+  window.AliceScan = { getReader, cam, diagText, addScan };
 })();
 </script>
 </body>
