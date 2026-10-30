@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#070b14">
 <title>Alice Scan Ledger</title>
@@ -69,7 +69,7 @@
   .split { display:grid; grid-template-columns:1.25fr 1fr; gap:16px; }
   @media (max-width: 980px) { .split { grid-template-columns:1fr; } header { padding:10px 14px; } main { padding:12px 12px 40px; } .card { padding:16px; } }
   /* camera */
-  #cam { display:none; position:fixed; inset:0; z-index:50; background:#000; }
+  #cam { display:none; position:fixed; inset:0; z-index:50; background:#000; touch-action:none; overscroll-behavior:none; }
   #cam video { width:100%; height:100%; object-fit:cover; }
   #cam .frame { position:absolute; left:50%; top:45%; width:min(82vw, 560px); height:min(36vh, 300px); transform:translate(-50%,-50%); border:2px solid rgba(25,227,209,.85); border-radius:18px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); }
   #cam .frame::after { content:""; position:absolute; left:6%; right:6%; top:50%; height:2px; background:var(--cyan); box-shadow:0 0 14px var(--cyan); animation:line 1.6s ease-in-out infinite alternate; }
@@ -171,6 +171,7 @@
   <div class="ocr" id="ocrBox"></div>
   <div class="bar">
     <button class="btn" id="btnTorch" style="display:none">💡 ライト</button>
+    <button class="btn" id="btnZoom" style="display:none">🔍 1x</button>
     <button class="btn" id="btnFlip">🔄 カメラ切替</button>
     <button class="btn" id="btnMode">🎯 デバイス</button>
     <button class="btn" id="btnOcr" style="display:none">🔢 数字を読む</button>
@@ -365,10 +366,12 @@
       try { await v.play(); } catch (e) { /* 自動再生が拒否されても次のフレームで再生される */ }
       const track = cam.stream.getVideoTracks()[0]; const caps = track.getCapabilities ? track.getCapabilities() : {};
       $("#btnTorch").style.display = caps.torch ? "inline-flex" : "none";
+      cam.zoomCap = (caps.zoom && caps.zoom.max > caps.zoom.min) ? caps.zoom : null; $("#btnZoom").style.display = cam.zoomCap ? "inline-flex" : "none"; $("#btnZoom").textContent = "🔍 1x";
+      if (cam.zoomCap && cam.zoomLevel > 1) applyZoom(cam.zoomLevel);
       try { if (caps.focusMode && caps.focusMode.includes("continuous")) await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch (e) {}
       const st = track.getSettings ? track.getSettings() : {}; cam.camInfo = (st.width || "?") + "x" + (st.height || "?") + (track.label ? " " + track.label : "");
       let read; try { read = await getReader(); } catch (e) { showFail((e && e.message || e) + " 下のボタンで端末のカメラで撮影してください。"); return; }
-      $("#camMsg").textContent = "枠内にバーコードを入れてください（" + cam.engine + "）"; $("#camLive").textContent = "起動中 " + cam.camInfo; cam.frames = 0;
+      $("#camMsg").textContent = "バーコードを枠に入れ、15〜20cm 離してピントが合うまで待ってください（近すぎるとぼやけます。寄せたい時は 🔍 ズーム）"; $("#camLive").textContent = "起動中 " + cam.camInfo; cam.frames = 0;
       setTimeout(() => { if (cam.stream && v.readyState < 2) showFail("カメラは許可されましたが映像が届きません。他のカメラアプリを閉じるか、下のボタンで端末のカメラで撮影してください。"); }, 15000);
       let busy = false;
       cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) { cam.lastErr = "解析: " + (e && e.message || e); $("#camLive").textContent = cam.lastErr; } busy = false; }, 200);
@@ -433,6 +436,12 @@
     cam.ocrBusy = false;
   };
   $("#btnFlip").onclick = () => { cam.facing = cam.facing === "environment" ? "user" : "environment"; closeCam(); openCam(); };
+  // ズーム: 1x → 2x → 3x → 1x（端末が対応している場合のみ表示）
+  function applyZoom(z) { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (!t || !cam.zoomCap) return; const v = Math.min(cam.zoomCap.max, Math.max(cam.zoomCap.min, cam.zoomCap.min * z)); t.applyConstraints({ advanced: [{ zoom: v }] }).then(() => { cam.zoomLevel = z; $("#btnZoom").textContent = "🔍 " + z + "x"; }).catch(() => {}); }
+  $("#btnZoom").onclick = () => applyZoom(((cam.zoomLevel || 1) % 3) + 1);
+  // ピンチやダブルタップでページが拡大されないように
+  $("#cam").addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener("gesturestart", (e) => { if ($("#cam").style.display === "block") e.preventDefault(); });
   $("#btnTorch").onclick = () => { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (t) { const on = !(t.getSettings().torch); t.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); } };
   $("#camStat").textContent = "";
 
