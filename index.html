@@ -9,41 +9,52 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%23070b14'/%3E%3Cpath d='M6 21h8l3-8 5 16 4-12 3 4h5' fill='none' stroke='%2319e3d1' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<script>(function(){try{var t=new URLSearchParams(location.search).get("theme")||localStorage.getItem("scanLedger.theme");if(t&&t!=="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 <style>
   :root { --bg:#070b14; --bg2:#0b1221; --bg3:#0e1729; --ink:#e8eef8; --muted:#8a97ad; --dim:#5a6980; --line:rgba(255,255,255,.08);
     --cyan:#19e3d1; --cyan2:#5fd7ff; --coral:#ff5a6e; --gold:#ffcd5a;
+    --accent-ink:#061018; --body-bg:radial-gradient(1100px 600px at 85% -10%, rgba(25,227,209,.10), transparent 60%), radial-gradient(800px 500px at -10% 30%, rgba(95,215,255,.07), transparent 60%), #070b14; --fx:1; --header-bg:rgba(7,11,20,.75); --card-bg:linear-gradient(180deg, rgba(255,255,255,.03), transparent 60%), #0b1221; --card-shadow:0 20px 60px rgba(0,0,0,.35); --th-bg:#0c1424; --scan-bg:#060a12; --btn-border:rgba(255,255,255,.18); --hover:rgba(255,255,255,.025);
     --disp:"Chakra Petch","Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",sans-serif; --jp:"Noto Sans JP","Hiragino Sans","Yu Gothic","Meiryo",sans-serif; --mono:"Share Tech Mono",ui-monospace,Consolas,monospace; --ease:cubic-bezier(.2,.7,.2,1); }
+  /* 配色パターン（ヘッダー右上のメニューで切替。?theme=light などでも指定可） */
+  html[data-theme="dark-soft"] { --bg:#161c26; --bg2:#1d2532; --bg3:#242e3d; --ink:#e6eaf0; --muted:#9aa5b5; --dim:#6e7888; --line:rgba(255,255,255,.09); --cyan:#86c7e3; --cyan2:#a3d3ec; --coral:#e8838e; --gold:#e3c57d; --accent-ink:#0f1720; --body-bg:#161c26; --fx:0; --header-bg:rgba(22,28,38,.88); --card-bg:#1d2532; --card-shadow:0 8px 24px rgba(0,0,0,.22); --th-bg:#1d2532; --scan-bg:#111722; }
+  html[data-theme="light"] { --bg:#f4f6f9; --bg2:#ffffff; --bg3:#f0f3f7; --ink:#17212e; --muted:#5d6b7c; --dim:#8c98a8; --line:rgba(16,32,56,.11); --cyan:#0f8f89; --cyan2:#1b7fc2; --coral:#d4404c; --gold:#a8701a; --accent-ink:#ffffff; --body-bg:#f4f6f9; --fx:0; --header-bg:rgba(255,255,255,.88); --card-bg:#ffffff; --card-shadow:0 6px 20px rgba(20,40,70,.07); --th-bg:#f0f3f7; --scan-bg:#ffffff; --btn-border:rgba(16,32,56,.24); --hover:rgba(16,32,56,.035); }
+  html[data-theme="light-soft"] { --bg:#f3f1ec; --bg2:#fbfaf7; --bg3:#f0ede7; --ink:#2b323c; --muted:#6b737e; --dim:#9aa1aa; --line:rgba(40,45,55,.11); --cyan:#4b78a6; --cyan2:#5d8bb8; --coral:#c4636b; --gold:#9e7c2c; --accent-ink:#ffffff; --body-bg:#f3f1ec; --fx:0; --header-bg:rgba(243,241,236,.9); --card-bg:#fbfaf7; --card-shadow:0 4px 14px rgba(40,45,55,.06); --th-bg:#f0ede7; --scan-bg:#ffffff; --btn-border:rgba(40,45,55,.22); --hover:rgba(40,45,55,.03); }
+  html[data-theme="light"] .brand small, html[data-theme="light-soft"] .brand small { color:var(--dim); }
+  html[data-theme="light-soft"] .eyebrow, html[data-theme="light-soft"] label.f, html[data-theme="light-soft"] th { letter-spacing:.12em; }
+  html:not([data-theme]) .status select option { background:#0e1729; }
+  .status select { min-width:0; padding:5px 26px 5px 10px; font-size:12px; border-radius:8px; font-family:var(--jp); background-position:calc(100% - 14px) 50%, calc(100% - 9px) 50%; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html, body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--jp); font-feature-settings:"palt"; font-size:15px; }
-  body { min-height:100vh; background:radial-gradient(1100px 600px at 85% -10%, rgba(25,227,209,.10), transparent 60%), radial-gradient(800px 500px at -10% 30%, rgba(95,215,255,.07), transparent 60%), var(--bg); }
-  .glow { position:fixed; width:520px; height:520px; border-radius:50%; pointer-events:none; z-index:0; background:radial-gradient(circle, rgba(25,227,209,.08), transparent 60%); transform:translate(-50%,-50%); left:50%; top:20%; }
-  header { position:sticky; top:0; z-index:5; backdrop-filter:blur(10px); background:rgba(7,11,20,.75); border-bottom:1px solid var(--line); padding:12px 20px; display:flex; align-items:center; gap:14px; }
+  body { min-height:100vh; background:var(--body-bg); }
+  .glow { position:fixed; width:520px; height:520px; border-radius:50%; pointer-events:none; z-index:0; opacity:var(--fx); background:radial-gradient(circle, rgba(25,227,209,.08), transparent 60%); transform:translate(-50%,-50%); left:50%; top:20%; }
+  header { position:sticky; top:0; z-index:5; backdrop-filter:blur(10px); background:var(--header-bg); border-bottom:1px solid var(--line); padding:12px 20px; display:flex; align-items:center; gap:14px; }
   .brand { display:flex; align-items:center; gap:10px; font-family:var(--disp); font-weight:700; font-size:20px; letter-spacing:.04em; }
   .brand b { color:var(--cyan); font-weight:700; }
   .brand small { font-family:var(--mono); font-size:11px; letter-spacing:.22em; color:var(--muted); text-transform:uppercase; margin-left:6px; }
   .status { margin-left:auto; font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--muted); display:flex; gap:14px; align-items:center; white-space:nowrap; }
-  @media (max-width: 640px) { .brand small { display:none; } .status { font-size:11px; gap:10px; } }
+  @media (max-width: 640px) { header { flex-wrap:wrap; row-gap:6px; padding:10px 14px; } .brand small { display:none; } .status { font-size:11px; gap:10px; flex-wrap:wrap; justify-content:flex-end; white-space:normal; row-gap:6px; } .status select { padding:4px 22px 4px 8px; font-size:11px; } }
   .dot { width:8px; height:8px; border-radius:50%; background:var(--cyan); box-shadow:0 0 12px var(--cyan); display:inline-block; margin-right:6px; }
   .dot.off { background:var(--coral); box-shadow:0 0 10px var(--coral); }
   main { position:relative; z-index:1; padding:18px 20px 60px; display:grid; gap:16px; max-width:1500px; margin:0 auto; }
+  main > *, .split > * { min-width:0; } /* 表の最小幅でページ全体が横に広がらないように */
   .eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:.26em; text-transform:uppercase; color:var(--cyan); margin:0 0 8px; }
   h2 { margin:0 0 10px; font-size:20px; font-weight:700; letter-spacing:.01em; }
-  .card { position:relative; border:1px solid var(--line); border-radius:18px; padding:20px 22px; background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 60%), var(--bg2); box-shadow:0 20px 60px rgba(0,0,0,.35); }
-  .card.hot { border-color:rgba(25,227,209,.35); }
+  .card { position:relative; border:1px solid var(--line); border-radius:18px; padding:20px 22px; background:var(--card-bg); box-shadow:var(--card-shadow); }
+  .card.hot { border-color:color-mix(in srgb, var(--cyan) 40%, transparent); }
   .row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
   label.f { display:flex; flex-direction:column; gap:5px; font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
   input, select, textarea, button { font:inherit; color:var(--ink); }
   input[type=text], input[type=date], select, textarea { background:var(--bg3); border:1px solid var(--line); border-radius:10px; padding:11px 12px; min-width:150px; font-family:var(--jp); font-size:15px; }
-  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--cyan); box-shadow:0 0 0 3px rgba(25,227,209,.18); }
+  input:focus, select:focus, textarea:focus { outline:none; border-color:var(--cyan); box-shadow:0 0 0 3px color-mix(in srgb, var(--cyan) 20%, transparent); }
   select { appearance:none; background-image:linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position:calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size:5px 5px; background-repeat:no-repeat; padding-right:34px; }
-  .btn { display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:999px; font-weight:600; font-size:14px; border:1px solid rgba(255,255,255,.18); background:transparent; cursor:pointer; transition:transform .2s var(--ease), box-shadow .2s, border-color .2s, color .2s; white-space:nowrap; }
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:11px 20px; border-radius:999px; font-weight:600; font-size:14px; border:1px solid var(--btn-border); background:transparent; cursor:pointer; transition:transform .2s var(--ease), box-shadow .2s, border-color .2s, color .2s; white-space:nowrap; }
   .btn:hover { border-color:var(--cyan); color:var(--cyan); transform:translateY(-1px); }
-  .btn.primary { background:var(--cyan); color:#061018; border-color:var(--cyan); }
-  .btn.primary:hover { color:#061018; box-shadow:0 10px 40px rgba(25,227,209,.35); }
-  .btn.danger { color:var(--coral); border-color:rgba(255,90,110,.35); } .btn.danger:hover { border-color:var(--coral); color:var(--coral); }
+  .btn.primary { background:var(--cyan); color:var(--accent-ink); border-color:var(--cyan); }
+  .btn.primary:hover { color:var(--accent-ink); box-shadow:0 10px 40px color-mix(in srgb, var(--cyan) 35%, transparent); }
+  .btn.danger { color:var(--coral); border-color:color-mix(in srgb, var(--coral) 40%, transparent); } .btn.danger:hover { border-color:var(--coral); color:var(--coral); }
   .btn.sm { padding:7px 14px; font-size:13px; }
   .btn:disabled { opacity:.45; cursor:default; transform:none; }
-  #scan { width:100%; font-family:var(--mono); font-size:22px; letter-spacing:.04em; padding:16px 18px; border:1.5px solid rgba(25,227,209,.5); border-radius:14px; background:#060a12; color:var(--cyan); }
+  #scan { width:100%; font-family:var(--mono); font-size:22px; letter-spacing:.04em; padding:16px 18px; border:1.5px solid color-mix(in srgb, var(--cyan) 55%, transparent); border-radius:14px; background:var(--scan-bg); color:var(--cyan); }
   #scan::placeholder { color:var(--dim); font-family:var(--jp); font-size:16px; letter-spacing:0; }
   .scanwrap { position:relative; }
   .scanwrap::after { content:""; position:absolute; left:18px; right:18px; bottom:-1px; height:2px; background:linear-gradient(90deg, transparent, var(--cyan), transparent); opacity:.6; animation:sweep 2.4s linear infinite; }
@@ -55,14 +66,14 @@
   .tablewrap { overflow:auto; max-height:62vh; border:1px solid var(--line); border-radius:12px; margin-top:12px; -webkit-overflow-scrolling:touch; }
   table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:1500px; }
   th, td { border-bottom:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:middle; white-space:nowrap; }
-  th { position:sticky; top:0; background:#0c1424; font-family:var(--mono); font-weight:400; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); z-index:1; }
-  tr:hover td { background:rgba(255,255,255,.025); }
+  th { position:sticky; top:0; background:var(--th-bg); font-family:var(--mono); font-weight:400; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); z-index:1; }
+  tr:hover td { background:var(--hover); }
   td.mono { font-family:var(--mono); letter-spacing:.03em; }
   td.name { font-weight:500; }
-  td[contenteditable] { border-bottom:1px dashed rgba(255,205,90,.5); color:var(--gold); min-width:90px; }
+  td[contenteditable] { border-bottom:1px dashed color-mix(in srgb, var(--gold) 55%, transparent); color:var(--gold); min-width:90px; }
   .tag { display:inline-block; padding:2px 9px; border-radius:999px; font-family:var(--mono); font-size:11px; letter-spacing:.08em; border:1px solid; margin-right:4px; }
-  .ok { color:var(--cyan); border-color:rgba(25,227,209,.45); } .warn { color:var(--gold); border-color:rgba(255,205,90,.45); } .bad { color:var(--coral); border-color:rgba(255,90,110,.5); }
-  tr.flash td { animation:flash 1.2s var(--ease); } @keyframes flash { from { background:rgba(25,227,209,.18) } to { background:transparent } }
+  .ok { color:var(--cyan); border-color:color-mix(in srgb, var(--cyan) 50%, transparent); } .warn { color:var(--gold); border-color:color-mix(in srgb, var(--gold) 50%, transparent); } .bad { color:var(--coral); border-color:color-mix(in srgb, var(--coral) 55%, transparent); }
+  tr.flash td { animation:flash 1.2s var(--ease); } @keyframes flash { from { background:color-mix(in srgb, var(--cyan) 20%, transparent) } to { background:transparent } }
   .x { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; } .x:hover { border-color:var(--coral); color:var(--coral); }
   details summary { cursor:pointer; color:var(--cyan2); font-size:14px; list-style:none; } details summary::before { content:"▸ "; } details[open] summary::before { content:"▾ "; }
   textarea { width:100%; min-height:90px; font-family:var(--mono); margin-top:8px; }
@@ -71,29 +82,29 @@
   /* camera */
   #cam { display:none; position:fixed; inset:0; z-index:50; background:#000; touch-action:none; overscroll-behavior:none; }
   #cam video { width:100%; height:100%; object-fit:cover; }
-  #cam .frame { position:absolute; left:50%; top:45%; width:min(82vw, 560px); height:min(36vh, 300px); transform:translate(-50%,-50%); border:2px solid rgba(25,227,209,.85); border-radius:18px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); }
+  #cam .frame { position:absolute; left:50%; top:45%; width:min(82vw, 560px); height:min(36vh, 300px); transform:translate(-50%,-50%); border:2px solid var(--cyan); border-radius:18px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); }
   #cam .frame::after { content:""; position:absolute; left:6%; right:6%; top:50%; height:2px; background:var(--cyan); box-shadow:0 0 14px var(--cyan); animation:line 1.6s ease-in-out infinite alternate; }
   @keyframes line { from { transform:translateY(-70px) } to { transform:translateY(70px) } }
-  #cam .bar { position:absolute; left:0; right:0; bottom:0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); display:flex; gap:10px; align-items:center; background:linear-gradient(transparent, rgba(7,11,20,.9)); }
+  #cam .bar { position:absolute; left:0; right:0; bottom:0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:linear-gradient(transparent, rgba(7,11,20,.9)); }
   #cam .msg { position:absolute; left:0; right:0; top:calc(14px + env(safe-area-inset-top)); text-align:center; font-family:var(--mono); font-size:13px; letter-spacing:.1em; color:var(--cyan); padding:0 16px; }
   #cam .fail { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(92vw, 520px); background:rgba(11,18,33,.96); border:1px solid rgba(255,90,110,.5); border-radius:18px; padding:22px; font-size:16px; line-height:1.7; z-index:2; }
   #cam .fail h3 { margin:0 0 8px; color:var(--coral); font-size:18px; }
   #cam .fail .row { margin-top:14px; }
-  #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:rgba(25,227,209,.92); color:#061018; padding:10px 18px; border-radius:22px; font-weight:700; max-width:90vw; text-align:center; opacity:0; transition:opacity .2s; }
+  #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:var(--cyan); color:var(--accent-ink); padding:10px 18px; border-radius:22px; font-weight:700; max-width:90vw; text-align:center; opacity:0; transition:opacity .2s; }
   #cam .hit.show { opacity:1; }
   #cam .live { position:absolute; left:0; right:0; bottom:calc(84px + env(safe-area-inset-bottom)); text-align:center; font-family:var(--mono); font-size:12px; color:var(--muted); pointer-events:none; }
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
   #cam .ocr button { font-family:var(--mono); font-size:18px; letter-spacing:.06em; padding:10px 16px; border-radius:12px; border:1px solid var(--cyan); background:rgba(7,11,20,.85); color:var(--cyan); }
-  .ecg { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:0; opacity:.35; pointer-events:none; }
+  .ecg { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:0; opacity:calc(.35 * var(--fx)); pointer-events:none; }
 </style>
 </head>
 <body>
 <div class="glow"></div>
-<svg class="ecg" viewBox="0 0 1400 70" preserveAspectRatio="none"><path d="M0 40h120l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h120" fill="none" stroke="#19e3d1" stroke-width="1.6"/></svg>
+<svg class="ecg" viewBox="0 0 1400 70" preserveAspectRatio="none"><path d="M0 40h120l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h120" fill="none" stroke="var(--cyan)" stroke-width="1.6"/></svg>
 
 <header>
   <div class="brand"><svg width="26" height="26" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#0e1729"/><path d="M6 21h8l3-8 5 16 4-12 3 4h5" fill="none" stroke="#19e3d1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Alice<b>Scan</b><small>UDI Ledger</small></div>
-  <div class="status"><span id="masterStat"><span class="dot off"></span>辞書</span><span id="camStat"></span></div>
+  <div class="status"><span id="masterStat"><span class="dot off"></span>辞書</span><span id="camStat"></span><select id="themeSel" title="配色"><option value="dark">黒</option><option value="dark-soft">黒・マイルド</option><option value="light">白</option><option value="light-soft">白・マイルド</option></select></div>
 </header>
 
 <main>
@@ -174,6 +185,7 @@
     <button class="btn" id="btnZoom" style="display:none">🔍 1x</button>
     <button class="btn" id="btnFlip">🔄 カメラ切替</button>
     <button class="btn" id="btnMode">🎯 デバイス</button>
+    <button class="btn" id="btnAuto" title="行が完成したら台帳に戻る／連続で読む">✅ 読めたら戻る</button>
     <button class="btn" id="btnOcr" style="display:none">🔢 数字を読む</button>
     <span style="flex:1"></span>
     <button class="btn primary" id="btnCamClose">閉じる</button>
@@ -190,7 +202,7 @@
   const nM = Object.keys(M).length;
   $("#masterStat").innerHTML = (nM ? '<span class="dot"></span>辞書 ' + nM.toLocaleString() + ' 件' : '<span class="dot off"></span>辞書なし（master_jan.js）');
 
-  const VERSION = "2026-10-30.6";
+  const VERSION = "2026-11-01.1";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -321,7 +333,7 @@
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 
   // ---------- カメラ読み取り（BarcodeDetector → zxing-wasm）
-  const cam = { stream: null, timer: null, facing: "environment", lastText: "", lastAt: 0, reader: null, engine: "", mode: "device", ocr: null, ocrBusy: false };
+  const cam = { stream: null, timer: null, facing: "environment", lastText: "", lastAt: 0, reader: null, engine: "", mode: "device", ocr: null, ocrBusy: false, closeT: null, autoClose: (function () { try { return localStorage.getItem("scanLedger.autoClose") !== "0"; } catch (e) { return true; } })() };
   const FORMATS = ["code_128", "data_matrix", "qr_code", "ean_13", "code_39", "itf", "ean_8", "codabar"];
   const ZX_URL = "https://cdn.jsdelivr.net/npm/zxing-wasm@2/dist/es/reader/index.js";
   const ZX_FORMATS = ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"];
@@ -391,7 +403,7 @@
     throw err || new Error("unknown");
   }
   async function openCam() {
-    $("#cam").style.display = "block"; $("#camFail").style.display = "none"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = "";
+    clearTimeout(cam.closeT); cam.closeT = null; $("#cam").style.display = "block"; $("#camFail").style.display = "none"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = "";
     if (!window.isSecureContext) { showFail("このページは https ではないためブラウザのカメラを使えません。"); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showFail(inApp ? "LINE・メール・Facebook などのアプリ内ブラウザではブラウザのカメラが使えません。右上メニューの「Chrome で開く」「Safari で開く」で開き直すか、下のボタンで端末のカメラで撮影してください。" : "このブラウザではカメラAPIが使えません。下のボタンで端末のカメラで撮影してください。"); return; }
     try {
@@ -445,13 +457,22 @@
   function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
   function hit(t) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
+    // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
+    const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
     const r = addScan(t); const el = $("#camHit");
-    el.textContent = !r ? "読めましたが解釈できません: " + String(t).slice(0, 40) : (!r.gtin ? "LOT/REF を読みました → 同じ製品の (01) 付きバーコードも読んでください" : (r.name || r.jan || "") + "  LOT " + (r.lot || "—"));
-    el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); if (navigator.vibrate) navigator.vibrate(60); beep(); }
-  function closeCam() { closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
+    // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
+    const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
+    const tail = done ? (cam.autoClose ? "  ✓ 保存 → 台帳に戻ります" : "  ✓ 保存（" + cur.items.length + " 本目。続けて次を読めます）") : "";
+    el.textContent = !r ? "読めましたが解釈できません: " + String(t).slice(0, 40) : (!r.gtin ? "LOT/REF を読みました → 同じ製品の (01) 付きバーコードも読んでください" : (r.refResolved ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + "（REF から特定。(01) 付きも読むと期限が入ります）" : (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + tail));
+    el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); if (navigator.vibrate) navigator.vibrate(60); beep();
+    if (done && cam.autoClose && !cam.closeT) { clearInterval(cam.timer); cam.timer = null; cam.closeT = setTimeout(() => { cam.closeT = null; closeCam(); log("読めたので台帳に戻りました（続けて読むときは「📷 カメラで読む」）"); }, 1500); } }
+  function closeCam() { clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
   let actx; function beep() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1760; g.gain.value = .08; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .09); } catch (e) {} }
   $("#btnCam").onclick = openCam; $("#btnCamClose").onclick = closeCam;
   $("#btnMode").onclick = () => setMode(cam.mode === "device" ? "pid" : "device");
+  function autoLabel() { $("#btnAuto").textContent = cam.autoClose ? "✅ 読めたら戻る" : "🔁 連続で読む"; }
+  $("#btnAuto").onclick = () => { cam.autoClose = !cam.autoClose; try { localStorage.setItem("scanLedger.autoClose", cam.autoClose ? "1" : "0"); } catch (e) {} autoLabel(); $("#camMsg").textContent = cam.autoClose ? "品名と LOT がそろったら自動で台帳に戻ります" : "連続で読めます。終わったら「閉じる」で台帳に戻ります"; };
+  autoLabel();
   // 数字の OCR（tesseract.js、CDN）。枠の範囲だけ切り出して数字のみ認識し、候補をボタンで示す
   async function getOcr() {
     if (cam.ocr) return cam.ocr;
@@ -480,6 +501,11 @@
   document.addEventListener("gesturestart", (e) => { if ($("#cam").style.display === "block") e.preventDefault(); });
   $("#btnTorch").onclick = () => { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (t) { const on = !(t.getSettings().torch); t.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); } };
   $("#camStat").textContent = "v" + VERSION;
+  // 配色の切替（端末に記憶。?theme=light-soft のように URL でも指定可）
+  const THEME_COLOR = { dark: "#070b14", "dark-soft": "#161c26", light: "#f4f6f9", "light-soft": "#f3f1ec" };
+  function applyTheme(t) { t = THEME_COLOR[t] ? t : "dark"; if (t === "dark") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); document.querySelector("meta[name=theme-color]").setAttribute("content", THEME_COLOR[t]); $("#themeSel").value = t; }
+  applyTheme(document.documentElement.getAttribute("data-theme") || "dark");
+  $("#themeSel").onchange = () => { applyTheme($("#themeSel").value); try { localStorage.setItem("scanLedger.theme", $("#themeSel").value); } catch (e) {} };
 
   // ---------- イベント
   $("#cDate").value = today();
@@ -498,6 +524,7 @@
   $("#btnJimuAll").onclick = () => download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
   $("#btnJson").onclick = () => cur && download(caseKey(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
   $("#btnAllCsv").onclick = () => download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
+  if (new URLSearchParams(location.search).get("selftest") === "1") setTimeout(() => $("#btnSelfTest").click(), 300);
   $("#btnSelfTest").onclick = () => {
     if (!cur) newCase();
     ["(01)00763000632199(17)290328(10)0013360105", "(10)0013360105", "(240)ONYXNG35018JX", "(01)04987892138416(17)280731(10)260820(93)000372",
@@ -508,7 +535,7 @@
   };
   const first = latestCase(); if (first) openCase(first); else render();
   // デバッグ用（ブラウザのコンソールから解読を試すため）
-  window.AliceScan = { getReader, cam, diagText, addScan };
+  window.AliceScan = { getReader, cam, diagText, addScan, hit, openCam, closeCam };
 })();
 </script>
 </body>
