@@ -73,8 +73,10 @@
     return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
   }
   function gtinToJan(g) { return g ? g.replace(/^0+/, "") : ""; }
-  // 梱包単位 GTIN-14（先頭 1〜8）→ 単品 GTIN の候補
-  function unitGtin(g) { return g && g.length === 14 && g[0] !== "0" ? "0" + g.substr(1) : g; }
+  // 梱包単位 GTIN-14（先頭 1〜9）→ 単品 GTIN の候補。先頭を 0 にすると末尾のチェックデジットも変わるので計算し直す
+  // （以前は先頭だけ 0 に置き換えていたため、梱包単位のバーコードは辞書に当たらなかった）
+  function checkDigit(body) { let s = 0; for (let k = 0; k < body.length; k++) s += (+body[k]) * ((body.length - k) % 2 === 1 ? 3 : 1); return String((10 - s % 10) % 10); }
+  function unitGtin(g) { if (!(g && /^\d{14}$/.test(g) && g[0] !== "0")) return g; const body = "0" + g.substr(1, 12); return body + checkDigit(body); }
   function gtinCheck(g) {
     if (!/^\d{14}$/.test(g)) return false;
     let s = 0; for (let k = 0; k < 13; k++) s += (+g[k]) * (k % 2 === 0 ? 3 : 1);
@@ -87,5 +89,5 @@
       serial: a["21"] || "", ref: a["240"] || a["241"] || "", prod: expiry(a["11"] || ""), gtinValid: g ? gtinCheck(g) : null,
       packLevel: g && g[0] !== "0" ? g[0] : "", warn: p.warn.slice(), raw: p.raw };
   }
-  root.GS1 = { parse, expiry, gtinToJan, unitGtin, gtinCheck, toRecord, NAMES, GS };
+  root.GS1 = { parse, expiry, gtinToJan, unitGtin, gtinCheck, checkDigit, toRecord, NAMES, GS };
 })(typeof window !== "undefined" ? window : globalThis);
