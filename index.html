@@ -168,7 +168,7 @@
         事務用：手技日 / 患者ID / 手技 / 医事コード（特定器材コード） / 償還区分 / 特定保険医療材料名 / 償還価格（償還不可は「償還不可」） / 数量 / 品名 / LOT / 使用期限。備考に「院内未登録」とあれば Goodnet に無い製品。<br>
         GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。<br>
         辞書：公開辞書（院内マスター・メーカー提供・メーカー公開データ・厚労省マスター）＋院内辞書（KikiDB 由来・院内専用）＋米国 FDA の UDI データ（どちらにも無いときだけ。英語名・日本の材料名なし）。辞書に無い JAN は頭番号からメーカーを推定して「（推定）」と出します。院内辞書は公開サイトには置いていません。院内 PC では同じフォルダの master_jan_kikidb.js を自動で読み、iPad では「院内辞書を読み込む」で一度取り込むとこの端末に保存されます。<br>
-        KikiDB 由来の行は「外部で確認」の PMDA・Google・KikiDB で確かめて「✓確認」を押してください。PMDA はその製品の添付文書（PDF）が直接開きます（メーカーが PMDA に JAN を登録していない製品は開きません）。外部確認済み CSV を 循環器製品JANコード/raw_sources/confirmed/ に置くと、次の辞書更新で公開辞書に入ります。
+        KikiDB 由来の行や辞書に無い製品は「外部で確認」の PMDA で添付文書（PDF）を開いて確かめ、「✓確認」を押してください（メーカーが PMDA に JAN を登録していない製品は開きません）。辞書に無い製品は「✓確認」のときに販売名・メーカー・サイズを入れられます。外部確認済み CSV を 循環器製品JANコード/raw_sources/confirmed/ に置くと、次の辞書更新で公開辞書に入ります。
       </div>
     </div>
   </section>
@@ -233,7 +233,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-07.4";
+  const VERSION = "2026-11-07.5";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -304,7 +304,6 @@
   let CONF = (function () { try { return JSON.parse(localStorage.getItem(LSC)) || {}; } catch (e) { return {}; } })();
   function saveConf() { try { localStorage.setItem(LSC, JSON.stringify(CONF)); } catch (e) { log("確認記録を保存できません: " + e.message); } }
   const jan13 = (j) => String(j || "").padStart(13, "0");
-  const CHECK_URL = { kiki: "https://www.kikidb.jp/SC/guests/prdsrch.cfm?OPTYPE=11" };
   // PMDA: メーカーが添付文書に紐付けた GS1 コード（GTIN-14）で、その製品の添付文書を直接開く（添文ナビと同じ入口。開くのは人の操作だけ）
   const pmdaUrl = (j) => "https://www.pmda.go.jp/PmdaSearch/bookSearch/01/0" + jan13(j);
   async function copyText(s) { try { await navigator.clipboard.writeText(s); return true; } catch (e) { return false; } }
@@ -403,8 +402,9 @@
     if (!r.lot) n.push(["LOTなし", "warn"]); if (!r.expiry) n.push(["期限なし", "warn"]); else if (cur && r.expiry < cur.date) n.push(["期限切れ", "bad"]);
     if (r.gtinValid === false) n.push(["GTINチェック不一致", "bad"]); if (r.packLevel) n.push(["梱包単位GTIN(" + r.packLevel + ")" + (r.packQty ? " 入数" + r.packQty : ""), "warn"]);
     if (r.master === "○" && r.src !== "院内") n.push(["院内未登録(" + (r.src === "KikiDB" ? "KikiDB" : r.src) + "で特定)", "warn"]);   // Goodnet に無い製品。医事課で登録が要る
+    if (r.master !== "○" && CONF[r.jan]) n.push(["外部確認済(" + CONF[r.jan].by + ")", "ok"]);
     if (needsCheck(r)) { const cf = CONF[r.jan]; n.push(cf ? ["外部確認済(" + cf.by + ")", "ok"] : r.src === "外部確認" ? ["外部確認済(公開辞書)", "ok"] : ["KikiDB由来・要確認", "warn"]); }
-    if (r.master !== "○" && r.gtin && guessMaker(r.jan)) n.push(["メーカー推定(頭番号)", "warn"]);
+    if (r.master !== "○" && r.gtin && !r.maker && guessMaker(r.jan)) n.push(["メーカー推定(頭番号)", "warn"]);
     if (r.master === "○" && r.src === "米FDA") n.push(["日本の材料名・価格なし", "warn"]);
     if (r.status === "販売終了") n.push(["販売終了品", "warn"]); else if (r.status === "現行DB未掲載") n.push(["現行DB未掲載(要確認)", "warn"]);
     (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
@@ -419,13 +419,13 @@
     const tag = (t, c) => '<span class="tag ' + c + '">' + esc(t) + "</span>";
     cur.items.forEach((r, i) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + (r.master !== "○" && guessMaker(r.jan) ? '<span style="opacity:.7">（推定）' + esc(guessMaker(r.jan)) + "</span>" : esc(r.maker)) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
+      tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + (r.master !== "○" && !r.maker && guessMaker(r.jan) ? '<span style="opacity:.7">（推定）' + esc(guessMaker(r.jan)) + "</span>" : esc(r.maker)) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
         "<td>" + (r.master === "○" ? (r.kubun === "償還不可" ? tag(r.hoken, "warn") : esc(r.hoken)) : "") + "</td>" +
         '<td class="mono" style="text-align:right">' + (r.master === "○" ? (r.kubun === "償還不可" ? "—" : (r.price > 0 ? "¥" + Number(r.price).toLocaleString() : tag("価格なし", "warn"))) : "") + "</td>" +
         '<td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
         '<td class="mono">' + esc(r.jan) + '</td><td class="mono">' + esc(r.ijicode) + "</td>" +
         '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : (!r.gtin ? tag("GTIN待ち", "warn") : tag("未登録", "bad"))) + "</td>" +
-        '<td class="chk">' + (r.jan ? '<a class="lk" href="https://www.google.com/search?q=' + jan13(r.jan) + '" target="_blank" rel="noopener">Google</a><a class="lk" href="' + pmdaUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA の添付文書を開く">PMDA</a><button class="lk" data-open="kiki" data-i="' + i + '">KikiDB</button><button class="lk' + (CONF[r.jan] ? " done" : "") + '" data-conf="' + i + '">' + (CONF[r.jan] ? "✓済" : "✓確認") + "</button>" : "") + "</td><td>" +
+        '<td class="chk">' + (r.jan ? '<a class="lk" href="' + pmdaUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA の添付文書を開く">PMDA</a><button class="lk' + (CONF[r.jan] ? " done" : "") + '" data-conf="' + i + '">' + (CONF[r.jan] ? "✓済" : "✓確認") + "</button>" : "") + "</td><td>" +
         notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
       tb.appendChild(tr);
@@ -633,13 +633,16 @@
   $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); $("#paste").value = ""; };
   $("#tbl").addEventListener("click", async (e) => {
     const t = e.target; const d = t.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); return; }
-    const op = t.getAttribute("data-open");
-    if (op && cur) { const r = cur.items[+t.getAttribute("data-i")]; const cp = copyText(jan13(r.jan)); const w = window.open(CHECK_URL[op], "_blank"); if (w) w.opener = null; const ok = await cp;   // 開くのはクリック直後に（iPad のポップアップ制限）
-      log("KikiDB 公開検索（JAN 欄に貼り付け）を開きました。JAN " + jan13(r.jan) + (ok ? " をコピー済み" : "") + (w ? "" : "（ポップアップがブロックされました）")); return; }
     const cf = t.getAttribute("data-conf");
     if (cf != null && cur) { const r = cur.items[+cf];
       if (CONF[r.jan]) { if (confirm("JAN " + r.jan + " の外部確認（" + CONF[r.jan].by + "）を取り消しますか？")) { delete CONF[r.jan]; saveConf(); render(); } return; }
-      const by = prompt("どこで確認しましたか？（例: PMDA / メーカーHP / 添付文書 / Google / 包装）\n確認した内容: " + (r.maker || "") + " " + (r.name || "") + " " + (r.size || ""), "PMDA"); if (!by) return;
+      if (!r.name) {   // 辞書に無い製品: PMDA の添付文書を見て販売名・メーカーを入れてもらう
+        const nm = prompt("辞書に無い製品です。PMDA の添付文書の販売名を入れてください\nJAN " + jan13(r.jan), ""); if (!nm || !nm.trim()) return;
+        const mk = prompt("メーカー（製造販売業者）", r.maker || guessMaker(r.jan)); if (mk == null) return;
+        const sz = prompt("サイズ・型番（包装の表示。分からなければ空欄）", ""); if (sz == null) return;
+        r.name = nm.trim().slice(0, 80); r.maker = mk.trim().slice(0, 40); if (sz.trim()) r.size = sz.trim().slice(0, 60); save();
+      }
+      const by = prompt("どこで確認しましたか？（例: PMDA / 添付文書 / 包装 / メーカーHP）\n確認した内容: " + (r.maker || "") + " " + (r.name || "") + " " + (r.size || ""), "PMDA"); if (!by) return;
       CONF[r.jan] = { by: by.trim().slice(0, 40), at: now(), maker: r.maker || "", name: r.name || "", size: r.size || "", model: r.model || "", hinban: r.hinban || "" }; saveConf(); render(); log("外部確認を記録: JAN " + r.jan + "（" + by + "）"); }
   });
   $("#btnKikiLoad").onclick = () => $("#kikiIn").click();
