@@ -244,7 +244,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.1";
+  const VERSION = "2026-11-08.2";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
