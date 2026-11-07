@@ -167,7 +167,7 @@
         保存先：この端末のブラウザ内（Goodnet・NCD とは独立）。<br>
         事務用：手技日 / 患者ID / 手技 / 医事コード（特定器材コード） / 償還区分 / 特定保険医療材料名 / 償還価格（償還不可は「償還不可」） / 数量 / 品名 / LOT / 使用期限。備考に「院内未登録」とあれば Goodnet に無い製品。<br>
         GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。<br>
-        辞書：公開辞書（院内マスター・メーカー提供・メーカー公開データ・厚労省マスター）＋院内辞書（KikiDB 由来・院内専用）。院内辞書は公開サイトには置いていません。院内 PC では同じフォルダの master_jan_kikidb.js を自動で読み、iPad では「院内辞書を読み込む」で一度取り込むとこの端末に保存されます。<br>
+        辞書：公開辞書（院内マスター・メーカー提供・メーカー公開データ・厚労省マスター）＋院内辞書（KikiDB 由来・院内専用）＋米国 FDA の UDI データ（どちらにも無いときだけ。英語名・日本の材料名なし）。辞書に無い JAN は頭番号からメーカーを推定して「（推定）」と出します。院内辞書は公開サイトには置いていません。院内 PC では同じフォルダの master_jan_kikidb.js を自動で読み、iPad では「院内辞書を読み込む」で一度取り込むとこの端末に保存されます。<br>
         KikiDB 由来の行は「外部で確認」の PMDA・Google・KikiDB で確かめて「✓確認」を押してください。外部確認済み CSV を 循環器製品JANコード/raw_sources/confirmed/ に置くと、次の辞書更新で公開辞書に入ります。
       </div>
     </div>
@@ -216,6 +216,9 @@
   const D = window.MASTER_DICT || { maker: [], tok: [], cat: [] };   // 繰り返す文字列（メーカー・材料名・分類）は番号で持つ
   const META = window.MASTER_META || {};
   const P = window.MASTER_PACK || {};                                 // 梱包単位 GTIN-14 → 入数（メーカー提供リスト由来・公開可）
+  const PRE = window.MASTER_PREFIX || {};                             // JAN の頭 7〜10 桁 → メーカー#（辞書に無い JAN のメーカー推定）
+  let G = null;                                                      // 米国 FDA の UDI データ（master_gudid.js、公開可。あとから読み込む）
+  function guessMaker(jan) { if (!jan) return ""; const j = String(jan).padStart(13, "0"); for (let L = 10; L >= 7; L--) { const v = PRE[j.slice(0, L)]; if (v !== undefined) return D.maker[v] || ""; } return ""; }
   let K = null;                                                      // 院内専用辞書 {meta, dict, jan, pack, from}
   const nM = Object.keys(M).length;
   function showMasterStat() {
@@ -224,10 +227,13 @@
     const el = $("#kikiStat"); if (!el) return;
     el.innerHTML = "公開辞書 " + nM.toLocaleString() + " 件（院内マスター " + (META.hospital || 0).toLocaleString() + "・メーカー公開 " + (META.makerweb || 0).toLocaleString() + "・メーカー提供 " + (META.maker || 0).toLocaleString() + (META.pack ? "（梱包 GTIN " + META.pack.toLocaleString() + "）" : "") + "・外部確認 " + (META.confirmed || 0).toLocaleString() + "、" + esc(META.built || "") + "）<br>" +
       (K ? "院内辞書 " + K.meta.total.toLocaleString() + " 件（うち公開辞書に無い " + K.meta.only.toLocaleString() + " 件、" + esc(K.meta.built) + "、" + esc(K.from) + "から）" : "院内辞書：未読み込み（KikiDB 由来の製品は「未登録」になります）") +
-      "　外部確認済み " + Object.keys(CONF).length + " 件";
+      "　外部確認済み " + Object.keys(CONF).length + " 件<br>" +
+      (G ? "米国 FDA の UDI データ " + G.meta.total.toLocaleString() + " 件（AccessGUDID " + esc(G.meta.ver) + "、梱包 GTIN " + G.meta.pack.toLocaleString() + "）" : "米国 FDA の UDI データ：未読み込み") +
+      "　頭番号からのメーカー推定 " + Object.keys(PRE).length.toLocaleString() + " 種" +
+      '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-07.2";
+  const VERSION = "2026-11-07.3";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -254,7 +260,7 @@
   let REFIDX = null;
   function byRef(ref) {
     if (!ref) return null;
-    if (!REFIDX) { REFIDX = {}; const seen = {}; for (const src of [M, K ? K.jan : {}]) for (const j of Object.keys(src)) { if (seen[j]) continue; seen[j] = 1; const v = src[j]; for (const k of [v[8], v[4]]) { if (!k) continue; const s = String(k).trim().toUpperCase(); REFIDX[s] = (s in REFIDX && REFIDX[s] !== j) ? null : j; } } }
+    if (!REFIDX) { REFIDX = {}; const seen = {}; for (const [src, ks] of [[M, [8, 4]], [K ? K.jan : {}, [8, 4]], [G ? G.jan : {}, [5, 4]]]) for (const j of Object.keys(src)) { if (seen[j]) continue; seen[j] = 1; const v = src[j]; for (const i of ks) { const k = v[i]; if (!k) continue; const s = String(k).trim().toUpperCase(); REFIDX[s] = (s in REFIDX && REFIDX[s] !== j) ? null : j; } } }
     return REFIDX[String(ref).trim().toUpperCase()] || null;
   }
   const STATUS = ["", "販売終了", "現行DB未掲載"];
@@ -265,7 +271,11 @@
     cat: dict(d.cat, m[9]), status: STATUS[m[10] || 0] || "", src: (typeof m[11] === "number") ? (SRCNAME[m[11]] || "院内") : (m[11] === "外" ? "KikiDB" : "院内") }; }
   // 公開辞書の値を優先し、空欄だけ院内辞書（KikiDB 由来）で埋める。どちらにも無ければ null
   function lookup(jan) {
-    const a = M[jan], b = K && K.jan[jan]; if (!a && !b) return null;
+    const a = M[jan], b = K && K.jan[jan];
+    if (!a && !b) {   // 公開辞書にも院内辞書にも無いときだけ米国 FDA の UDI データ（日本の材料名・医事コード・価格は無い）
+      const g = G && G.jan[jan]; if (!g) return null;
+      return { maker: G.maker[g[0]] || "", name: g[1] || "", size: g[2] || "", shape: g[3] || "", model: g[4] || "", hinban: g[5] || "", hoken: "", price: 0, ijicode: "", cat: "", status: "", src: "米FDA", kikiFill: false, kubun: "要確認" };
+    }
     const pb = b ? decode(b, K.dict) : null; let o;
     if (a) {
       o = decode(a, D); o.kikiFill = false;
@@ -287,7 +297,7 @@
   const MFIELDS = ["maker", "name", "size", "shape", "model", "hoken", "price", "kubun", "ijicode", "hinban", "cat", "status", "src", "kikiFill"];
   function applyMaster(r, m) { for (const f of MFIELDS) r[f] = m[f]; }
   // 梱包単位（先頭 1〜9）の GTIN-14: JAN はチェックデジット再計算で出る（gs1.js）。入数と基底の違う例外は梱包表で引く（公開辞書のメーカー提供分を先に、無ければ院内辞書）
-  function resolvePack(r) { if (!r.gtin || !r.packLevel) return; let pv = P[r.gtin]; if (pv === undefined && K && K.pack) pv = K.pack[r.gtin]; if (pv === undefined) return; if (Array.isArray(pv)) { r.jan = pv[0]; r.packQty = pv[1]; } else r.packQty = pv; }
+  function resolvePack(r) { if (!r.gtin || !r.packLevel) return; let pv = P[r.gtin]; if (pv === undefined && K && K.pack) pv = K.pack[r.gtin]; if (pv === undefined && G && G.pack) pv = G.pack[r.gtin]; if (pv === undefined) return; if (Array.isArray(pv)) { r.jan = pv[0]; r.packQty = pv[1]; } else r.packQty = pv; }
 
   // ---------- 外部確認（KikiDB 由来の行を PMDA・メーカーHP などで確かめた記録。JAN 単位で端末に保存）
   const LSC = "scanLedger.confirmed";
@@ -314,6 +324,9 @@
     }
     try { const text = await idbDo("readonly", (st) => st.get(IDB.key)); if (text) setKiki(parseKiki(text), "この端末"); } catch (e) { log("院内辞書を読めません: " + e.message); }
   }
+  async function initGudid() {   // 公開ファイル。ページを開いたあとに裏で読む（6〜7MB）
+    try { await loadScript("master_gudid.js"); if (window.MASTER_GUDID && window.MASTER_GUDID.jan) { G = window.MASTER_GUDID; REFIDX = null; showMasterStat(); rematch(); } } catch (e) { log("米国 FDA の UDI データを読めません（master_gudid.js）"); }
+  }
   // 院内辞書を読んだあと、未登録だった行や空欄のある行を照合し直す
   function rematch() {
     let n = 0;
@@ -322,7 +335,7 @@
       const before = r.master + "|" + r.name + "|" + r.ijicode + "|" + r.price; r.master = "○"; applyMaster(r, m); if (r.packLevel && !r.packQty) resolvePack(r);
       if (before !== r.master + "|" + r.name + "|" + r.ijicode + "|" + r.price) n++;
     }
-    if (n) { save(); log("院内辞書で " + n + " 行を照合し直しました"); }
+    if (n) { save(); log("辞書の読み込みで " + n + " 行を照合し直しました"); }
     render();
   }
 
@@ -389,6 +402,8 @@
     if (r.gtinValid === false) n.push(["GTINチェック不一致", "bad"]); if (r.packLevel) n.push(["梱包単位GTIN(" + r.packLevel + ")" + (r.packQty ? " 入数" + r.packQty : ""), "warn"]);
     if (r.master === "○" && r.src !== "院内") n.push(["院内未登録(" + (r.src === "KikiDB" ? "KikiDB" : r.src) + "で特定)", "warn"]);   // Goodnet に無い製品。医事課で登録が要る
     if (needsCheck(r)) { const cf = CONF[r.jan]; n.push(cf ? ["外部確認済(" + cf.by + ")", "ok"] : r.src === "外部確認" ? ["外部確認済(公開辞書)", "ok"] : ["KikiDB由来・要確認", "warn"]); }
+    if (r.master !== "○" && r.gtin && guessMaker(r.jan)) n.push(["メーカー推定(頭番号)", "warn"]);
+    if (r.master === "○" && r.src === "米FDA") n.push(["日本の材料名・価格なし", "warn"]);
     if (r.status === "販売終了") n.push(["販売終了品", "warn"]); else if (r.status === "現行DB未掲載") n.push(["現行DB未掲載(要確認)", "warn"]);
     (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
   }
@@ -402,7 +417,7 @@
     const tag = (t, c) => '<span class="tag ' + c + '">' + esc(t) + "</span>";
     cur.items.forEach((r, i) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + esc(r.maker) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
+      tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + (r.master !== "○" && guessMaker(r.jan) ? '<span style="opacity:.7">（推定）' + esc(guessMaker(r.jan)) + "</span>" : esc(r.maker)) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td>" +
         "<td>" + (r.master === "○" ? (r.kubun === "償還不可" ? tag(r.hoken, "warn") : esc(r.hoken)) : "") + "</td>" +
         '<td class="mono" style="text-align:right">' + (r.master === "○" ? (r.kubun === "償還不可" ? "—" : (r.price > 0 ? "¥" + Number(r.price).toLocaleString() : tag("価格なし", "warn"))) : "") + "</td>" +
         '<td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
@@ -423,8 +438,9 @@
   const COLS = ["症例キー", "手技日", "患者ID", "手技", "読取時刻", "GTIN", "JAN", "医事コード", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "償還区分", "特定保険医療材料名", "償還価格", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "入数", "マスター照合", "マスター出典", "分類", "販売状況", "外部確認", "注意", "原文字列"];
   // 事務（医事課）向け: 請求に要る列だけ、1行1個
   const JCOLS = ["手技日", "患者ID", "手技", "医事コード", "償還区分", "特定保険医療材料名（機能区分）", "償還価格", "数量", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "JAN", "LOT", "使用期限", "備考"];
-  function jrows(c) { return c.items.map((r) => [c.date, c.pid, c.proc, r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
-  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, r.at, r.gtin, r.jan, r.ijicode || "", r.maker || "", r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
+  function jrows(c) { return c.items.map((r) => [c.date, c.pid, c.proc, r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>")]); }
+  function mkr(r) { return r.maker || (r.master !== "○" && guessMaker(r.jan) ? "（推定）" + guessMaker(r.jan) : ""); }
   function csv(rs, cols) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [cols || COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 
@@ -646,7 +662,7 @@
     log("自己テスト: 13本流しました（分割バーコードの統合込み）");
   };
   const first = latestCase(); if (first) openCase(first); else render();
-  showMasterStat(); initKiki();
+  showMasterStat(); initKiki().then(initGudid);
   // デバッグ用（ブラウザのコンソールから解読を試すため）
   window.AliceScan = { getReader, cam, diagText, addScan, hit, openCam, closeCam };
 })();
