@@ -193,7 +193,7 @@
       <button class="btn primary" id="btnPendOk">チェックした製品を確認済みにする</button>
     </div>
   </section>
-  <p style="font-size:10px; opacity:.5; margin:18px 4px 0; line-height:1.5">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</p>
+  <p style="font-size:10px; opacity:.5; margin:18px 4px 0; line-height:1.5">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.<br>製品辞書の一部は、出典：厚生労働省ホームページ「医療機器の保険適用について」（https://www.mhlw.go.jp/）を加工して作成。</p>
 </main>
 
 <div id="cam">
@@ -244,7 +244,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-07.7";
+  const VERSION = "2026-11-08.1";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -276,7 +276,7 @@
   }
   const STATUS = ["", "販売終了", "現行DB未掲載"];
   function dict(list, v) { return (typeof v === "number") ? (list[v] || "") : (v || ""); }
-  const SRCNAME = ["KikiDB", "院内", "メーカー", "メーカーHP", "外部確認"];
+  const SRCNAME = ["KikiDB", "院内", "メーカー", "メーカーHP", "外部確認", "厚労省"];
   function decode(m, d) { return { maker: dict(d.maker, m[0]), name: m[1] || "", size: m[2] || "", shape: m[3] || "", model: m[4] || "", hoken: dict(d.tok, m[5]),
     price: (typeof m[6] === "number") ? m[6] : (parseInt(String(m[6] || "").replace(/[^\d]/g, ""), 10) || 0), ijicode: m[7] || "", hinban: m[8] || "",
     cat: dict(d.cat, m[9]), status: STATUS[m[10] || 0] || "", src: (typeof m[11] === "number") ? (SRCNAME[m[11]] || "院内") : (m[11] === "外" ? "KikiDB" : "院内") }; }
