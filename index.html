@@ -163,14 +163,7 @@
         <button class="btn" id="btnConfCsv">外部確認済み CSV</button>
         <button class="btn sm danger" id="btnKikiDel">院内辞書を消す</button>
       </div>
-      <div class="stat" id="kikiStat" style="margin-top:10px; line-height:1.8"></div>
-      <div class="stat" style="margin-top:14px; line-height:1.8">
-        保存先：この端末のブラウザ内（Goodnet・NCD とは独立）。<br>
-        事務用：手技日 / 患者ID / 手技 / 医事コード（特定器材コード） / 償還区分 / 特定保険医療材料名 / 償還価格（償還不可は「償還不可」） / 数量 / 品名 / LOT / 使用期限。備考に「院内未登録」とあれば Goodnet に無い製品。<br>
-        GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。<br>
-        辞書：公開辞書（院内マスター・メーカー提供・メーカー公開データ・厚労省マスター）＋院内辞書（KikiDB 由来・院内専用）＋米国 FDA の UDI データ（どちらにも無いときだけ。英語名・日本の材料名なし）。辞書に無い JAN は頭番号からメーカーを推定して「（推定）」と出します。院内辞書は公開サイトには置いていません。院内 PC では同じフォルダの master_jan_kikidb.js を自動で読み、iPad では「院内辞書を読み込む」で一度取り込むとこの端末に保存されます。<br>
-        KikiDB 由来の行や辞書に無い製品は「外部で確認」の PMDA で添付文書（PDF）を開いて確かめ、「✓確認」を押してください（メーカーが PMDA に JAN を登録していない製品は開きません。そのときは辞書に無い行に出る「ネット検索」で）。辞書に無い製品は「✓確認」のときに販売名・メーカー・サイズを入れられます。何件もあるときは画面下の「未確認の製品（全症例）」でまとめて確認できます。外部確認済み CSV を 循環器製品JANコード/raw_sources/confirmed/ に置くと、次の辞書更新で公開辞書に入ります。
-      </div>
+      <!-- 辞書の内訳・使い方の説明は画面に出さない（2026-11-07 先生の指示。中身は progress.md と各フォルダの説明書きにある） -->
     </div>
   </section>
 
@@ -200,6 +193,7 @@
       <button class="btn primary" id="btnPendOk">チェックした製品を確認済みにする</button>
     </div>
   </section>
+  <p style="font-size:10px; opacity:.5; margin:18px 4px 0; line-height:1.5">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</p>
 </main>
 
 <div id="cam">
@@ -250,7 +244,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-07.6";
+  const VERSION = "2026-11-07.7";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
