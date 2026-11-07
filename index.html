@@ -75,6 +75,7 @@
   .ok { color:var(--cyan); border-color:color-mix(in srgb, var(--cyan) 50%, transparent); } .warn { color:var(--gold); border-color:color-mix(in srgb, var(--gold) 50%, transparent); } .bad { color:var(--coral); border-color:color-mix(in srgb, var(--coral) 55%, transparent); }
   tr.flash td { animation:flash 1.2s var(--ease); } @keyframes flash { from { background:color-mix(in srgb, var(--cyan) 20%, transparent) } to { background:transparent } }
   .lk { display:inline-block; padding:3px 8px; margin:0 3px 3px 0; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--cyan2); font-size:11px; font-family:var(--mono); cursor:pointer; text-decoration:none; white-space:nowrap; }
+  .pin { width:100%; min-width:110px; padding:5px 8px; font-size:13px; border-radius:8px; }
   .lk:hover { border-color:var(--cyan); color:var(--cyan); } .lk.done { color:var(--cyan); border-color:color-mix(in srgb, var(--cyan) 50%, transparent); font-weight:600; }
   td.chk { min-width:190px; }
   .x { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; } .x:hover { border-color:var(--coral); color:var(--coral); }
@@ -168,7 +169,7 @@
         事務用：手技日 / 患者ID / 手技 / 医事コード（特定器材コード） / 償還区分 / 特定保険医療材料名 / 償還価格（償還不可は「償還不可」） / 数量 / 品名 / LOT / 使用期限。備考に「院内未登録」とあれば Goodnet に無い製品。<br>
         GS1 の (01)(17)(10)(21)(240) を分解。分割バーコードは 90 秒以内の同製品に統合。<br>
         辞書：公開辞書（院内マスター・メーカー提供・メーカー公開データ・厚労省マスター）＋院内辞書（KikiDB 由来・院内専用）＋米国 FDA の UDI データ（どちらにも無いときだけ。英語名・日本の材料名なし）。辞書に無い JAN は頭番号からメーカーを推定して「（推定）」と出します。院内辞書は公開サイトには置いていません。院内 PC では同じフォルダの master_jan_kikidb.js を自動で読み、iPad では「院内辞書を読み込む」で一度取り込むとこの端末に保存されます。<br>
-        KikiDB 由来の行や辞書に無い製品は「外部で確認」の PMDA で添付文書（PDF）を開いて確かめ、「✓確認」を押してください（メーカーが PMDA に JAN を登録していない製品は開きません）。辞書に無い製品は「✓確認」のときに販売名・メーカー・サイズを入れられます。外部確認済み CSV を 循環器製品JANコード/raw_sources/confirmed/ に置くと、次の辞書更新で公開辞書に入ります。
+        KikiDB 由来の行や辞書に無い製品は「外部で確認」の PMDA で添付文書（PDF）を開いて確かめ、「✓確認」を押してください（メーカーが PMDA に JAN を登録していない製品は開きません。そのときは辞書に無い行に出る「ネット検索」で）。辞書に無い製品は「✓確認」のときに販売名・メーカー・サイズを入れられます。何件もあるときは画面下の「未確認の製品（全症例）」でまとめて確認できます。外部確認済み CSV を 循環器製品JANコード/raw_sources/confirmed/ に置くと、次の辞書更新で公開辞書に入ります。
       </div>
     </div>
   </section>
@@ -181,6 +182,22 @@
       <thead><tr><th>#</th><th>時刻</th><th>メーカー</th><th>品名</th><th>サイズ / 形状</th><th>償還分類（特定保険医療材料名）</th><th>償還価格</th><th>LOT</th><th>使用期限</th><th>JAN</th><th>医事コード</th><th>シリアル</th><th>REF</th><th>GTIN</th><th>照合</th><th>外部で確認</th><th>注意</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
+    </div>
+  </section>
+
+  <section class="card" id="pendCard" style="display:none">
+    <p class="eyebrow">Check</p>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">未確認の製品（全症例）</h2><div class="stat" id="pendStat" style="margin:0"></div></div>
+    <div class="stat" style="margin-top:6px">KikiDB 由来の製品と辞書に無い製品を、JAN ごとにまとめています。PMDA で添付文書を開いて確かめ、チェックして「確認済みにする」。辞書に無い製品は販売名を入れてください（PMDA に無いときは「ネット検索」で）。</div>
+    <div class="tablewrap" style="max-height:50vh">
+    <table style="min-width:980px">
+      <thead><tr><th><input type="checkbox" id="pendAll" title="全部選ぶ"></th><th>JAN</th><th>メーカー</th><th>品名</th><th>サイズ</th><th>種類</th><th>回数</th><th>調べる</th></tr></thead>
+      <tbody id="pendBody"></tbody>
+    </table>
+    </div>
+    <div class="row" style="margin-top:12px; align-items:center">
+      <label class="stat" style="margin:0">確認先 <input id="pendBy" value="PMDA" style="width:120px"></label>
+      <button class="btn primary" id="btnPendOk">チェックした製品を確認済みにする</button>
     </div>
   </section>
 </main>
@@ -233,7 +250,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-07.5";
+  const VERSION = "2026-11-07.6";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -308,6 +325,49 @@
   const pmdaUrl = (j) => "https://www.pmda.go.jp/PmdaSearch/bookSearch/01/0" + jan13(j);
   async function copyText(s) { try { await navigator.clipboard.writeText(s); return true; } catch (e) { return false; } }
   function needsCheck(r) { return r.master === "○" && (r.src === "KikiDB" || r.kikiFill); }
+  const webUrl = (j) => "https://www.google.com/search?q=" + jan13(j);   // 辞書にも PMDA にも無いときの予備（ネット検索）
+  // 未確認の製品（全症例）: KikiDB 由来・要確認の行と、辞書に無い行。JAN ごとに 1 行
+  function pendingList() {
+    const m = new Map();
+    for (const c of Object.values(db.cases)) for (const r of c.items) {
+      if (!r.jan || !r.gtin || CONF[r.jan] || r.src === "外部確認") continue;
+      if (!(needsCheck(r) || r.master !== "○")) continue;
+      const e = m.get(r.jan) || { jan: r.jan, r: r, n: 0, cases: new Set() }; e.n++; e.cases.add(caseKey(c)); if (!e.r.name && r.name) e.r = r; m.set(r.jan, e);
+    }
+    return [...m.values()].sort((a, b) => (a.r.master === "○") - (b.r.master === "○") || b.n - a.n);
+  }
+  function renderPending() {
+    const box = $("#pendBody"); if (!box) return;
+    const keep = {}, chk = {};   // 入力途中の値とチェックは描き直しても残す
+    box.querySelectorAll(".pin").forEach((x) => { keep[x.getAttribute("data-pj") + "|" + x.getAttribute("data-pf")] = x.value; });
+    box.querySelectorAll(".pchk").forEach((x) => { chk[x.getAttribute("data-pj")] = x.checked; });
+    const L = pendingList(); $("#pendStat").innerHTML = L.length ? "<b>" + L.length + "</b> 製品" : "未確認の製品はありません";
+    $("#pendCard").style.display = L.length ? "" : "none";
+    box.innerHTML = L.map((e, i) => { const r = e.r, un = r.master !== "○";
+      const inp = (f, v, ph) => { const k = e.jan + "|" + f; return '<input class="pin" data-pf="' + f + '" data-pj="' + esc(e.jan) + '" value="' + esc(k in keep ? keep[k] : v) + '" placeholder="' + ph + '">'; };
+      const on = e.jan in chk ? chk[e.jan] : !un;
+      return '<tr><td><input type="checkbox" class="pchk" data-pj="' + esc(e.jan) + '"' + (on ? " checked" : "") + '></td>' +
+        '<td class="mono">' + esc(jan13(e.jan)) + "</td>" +
+        "<td>" + (un ? inp("maker", r.maker || guessMaker(r.jan), "メーカー") : esc(r.maker)) + "</td>" +
+        '<td class="name">' + (un ? inp("name", r.name, "販売名（添付文書を見て）") : esc(r.name)) + "</td>" +
+        "<td>" + (un ? inp("size", r.size, "サイズ・型番") : esc([r.size, r.shape].filter(Boolean).join(" / "))) + "</td>" +
+        "<td>" + (un ? '<span class="tag bad">辞書に無い</span>' : '<span class="tag warn">KikiDB由来</span>') + "</td>" +
+        '<td class="mono" title="' + esc([...e.cases].join("\n")) + '">' + e.n + "</td>" +
+        '<td class="chk"><a class="lk" href="' + pmdaUrl(e.jan) + '" target="_blank" rel="noopener">PMDA</a>' + (un ? '<a class="lk" href="' + webUrl(e.jan) + '" target="_blank" rel="noopener" title="PMDA に無いときの予備">ネット検索</a>' : "") + "</td></tr>"; }).join("");
+  }
+  function confirmPending() {
+    const by = ($("#pendBy").value || "PMDA").trim().slice(0, 40); let ok = 0, skip = 0;
+    const val = (j, f) => { const x = document.querySelector('.pin[data-pj="' + j + '"][data-pf="' + f + '"]'); return x ? x.value.trim() : null; };
+    for (const cb of document.querySelectorAll(".pchk:checked")) {
+      const j = cb.getAttribute("data-pj"); const e = pendingList().find((x) => x.jan === j); if (!e) continue;
+      const nm = val(j, "name"), mk = val(j, "maker"), sz = val(j, "size");
+      if (nm !== null && !nm) { skip++; continue; }   // 辞書に無い製品は販売名が要る
+      if (nm !== null) for (const c of Object.values(db.cases)) for (const r of c.items) if (r.jan === j && r.master !== "○") { r.name = nm.slice(0, 80); r.maker = (mk || "").slice(0, 40); if (sz) r.size = sz.slice(0, 60); }
+      const r = e.r; CONF[j] = { by: by, at: now(), maker: (nm !== null ? mk : r.maker) || "", name: (nm !== null ? nm : r.name) || "", size: (nm !== null ? sz : r.size) || "", model: r.model || "", hinban: r.hinban || "" }; ok++;
+    }
+    if (ok) { saveConf(); save(); }
+    render(); log("まとめて外部確認: " + ok + " 製品を記録（確認先 " + by + "）" + (skip ? "。販売名が空の " + skip + " 製品は飛ばしました" : ""));
+  }
 
   // ---------- 院内辞書（KikiDB 由来）の読み込み。院内 PC は同じフォルダのファイル、iPad は取り込んで IndexedDB に保存
   const IDB = { name: "aliceScan", store: "files", key: "master_jan_kikidb" };
@@ -410,6 +470,7 @@
     (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
   }
   function render(flashLast) {
+    renderPending();
     const sel = $("#caseSel"); sel.innerHTML = "";
     Object.keys(db.cases).sort().reverse().forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = k + "（" + db.cases[k].items.length + "）"; sel.appendChild(o); });
     if (cur) sel.value = caseKey(cur);
@@ -425,7 +486,7 @@
         '<td class="mono" contenteditable data-f="lot" data-i="' + i + '">' + esc(r.lot) + '</td><td class="mono" contenteditable data-f="expiry" data-i="' + i + '">' + esc(r.expiry) + "</td>" +
         '<td class="mono">' + esc(r.jan) + '</td><td class="mono">' + esc(r.ijicode) + "</td>" +
         '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : (!r.gtin ? tag("GTIN待ち", "warn") : tag("未登録", "bad"))) + "</td>" +
-        '<td class="chk">' + (r.jan ? '<a class="lk" href="' + pmdaUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA の添付文書を開く">PMDA</a><button class="lk' + (CONF[r.jan] ? " done" : "") + '" data-conf="' + i + '">' + (CONF[r.jan] ? "✓済" : "✓確認") + "</button>" : "") + "</td><td>" +
+        '<td class="chk">' + (r.jan ? '<a class="lk" href="' + pmdaUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA の添付文書を開く">PMDA</a>' + (r.master !== "○" ? '<a class="lk" href="' + webUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA に無いときの予備">ネット検索</a>' : "") + '<button class="lk' + (CONF[r.jan] ? " done" : "") + '" data-conf="' + i + '">' + (CONF[r.jan] ? "✓済" : "✓確認") + "</button>" : "") + "</td><td>" +
         notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
       tb.appendChild(tr);
@@ -631,6 +692,8 @@
   $("#scan").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const v = e.target.value; e.target.value = ""; if (v.trim()) addScan(v); } });
   $("#scan").addEventListener("input", (e) => { const v = e.target.value; if (/[\r\n]/.test(v)) { e.target.value = ""; v.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); } });
   $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); $("#paste").value = ""; };
+  $("#btnPendOk").onclick = confirmPending;
+  $("#pendAll").onchange = (e) => document.querySelectorAll(".pchk").forEach((x) => { x.checked = e.target.checked; });
   $("#tbl").addEventListener("click", async (e) => {
     const t = e.target; const d = t.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); return; }
     const cf = t.getAttribute("data-conf");
