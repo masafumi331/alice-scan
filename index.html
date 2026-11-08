@@ -255,7 +255,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.3";
+  const VERSION = "2026-11-08.4";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -478,26 +478,37 @@
     return [v].concat(L.segs || []).join(" ");
   }
   function lesionById(id, c) { return lesions(c).find((L) => L.id === id) || null; }
-  // 部位の記録が要るデバイス（ステント・DCB）。特定保険医療材料名を先に、無ければ品名で判定。冠動脈・末梢以外のステント（胆道・尿管・脳血管など）は対象外
+  // 部位の記録が要るデバイス（ステント・DCB は 1 か所、デバルキングは複数か所可）。特定保険医療材料名を先に、無ければ品名で判定。冠動脈・末梢以外のステント（胆道・尿管・脳血管など）は対象外
+  // デバルキングの範囲はカテ記録の debulk 分類に合わせる：ロータブレーター・Diamondback・Shockwave IVL・ELCA・DCA（冠動脈）、Jetstream・HawkOne・Crosser・Rotarex・Auryon・末梢 IVL（下肢）
   function siteKind(r) {
     const h = (r.hoken || "") + " " + (r.name || "");
     if (/胆道|尿管|尿道|消化管|気管|食道|脳血管|頸動脈|塞栓用コイル|大動脈用ステントグラフト|静脈/.test(h)) return "";
     if (/ステント|stent|scaffold|スキャフォールド/i.test(h)) return "ステント";
     if (/再狭窄抑制型/.test(r.hoken || "") || /(^|[^a-z])dcb([^a-z]|$)|drug[\s-]?coated|薬剤コーティング|薬剤溶出.*バルーン|sequent|シークエント|(^|[^a-z])agent([^a-z]|$)|in\.?pact|インパクト|pantera lux|パンテーララックス|magic\s?touch|マジックタッチ|lutonix|ルトニクス|ranger|レンジャー|passeo|stellarex/i.test(h)) return "DCB";
+    if (!/血栓/.test(h) && /切削型|破砕型|粥腫切除|アテレクトミー|atherectomy|lithotripsy|衝撃波|エキシマ|excimer|rotablator|rotapro|ロータブレータ|ロータプロ|diamondback|ダイヤモンドバック|ダイアモンドバック|shockwave|ショックウェーブ|ショックウェイブ|(^|[^a-z])ivl([^a-z]|$)|(^|[^a-z])elca([^a-z]|$)|jetstream|ジェットストリーム|crosser|クロッサー|hawkone|silverhawk|turbohawk|rotarex|auryon|atherocut|アテロカット/i.test(h)) return "デバルキング";
     return "";
   }
+  const siteMulti = (k) => k === "デバルキング";
+  function siteIds(r) { if (!Array.isArray(r.siteIds)) r.siteIds = r.siteId ? [r.siteId] : []; return r.siteIds; }
+  function hasSite(r) { return siteMulti(siteKind(r)) ? siteIds(r).length > 0 : !!r.siteId; }
   // 1 病変なら自動で全部その部位に。2 病変以上なら選んでもらう（自動で付けた分は外して選び直し）。同じデバイスは 1 か所だけ
   function autoSite(c) {
     c = c || cur; if (!c || !siteMaster(c)) return;
     const ls = lesions(c);
     for (const r of c.items) {
-      if (!siteKind(r)) continue;
+      const k = siteKind(r); if (!k) continue;
+      if (siteMulti(k)) {
+        const ids = siteIds(r).filter((id) => lesionById(id, c)); if (ids.length !== siteIds(r).length) { r.siteIds = ids; r.siteAuto = false; }
+        if (ls.length === 1) { if (!ids.length) { r.siteIds = [ls[0].id]; r.siteAuto = true; } }
+        else if (r.siteAuto) { r.siteIds = []; r.siteAuto = false; }
+        continue;
+      }
       if (r.siteId && !lesionById(r.siteId, c)) { r.siteId = ""; r.siteAuto = false; }
       if (ls.length === 1) { if (!r.siteId) { r.siteId = ls[0].id; r.siteAuto = true; } }
       else if (r.siteAuto) { r.siteId = ""; r.siteAuto = false; }
     }
   }
-  function siteLabel(r, c) { return siteKind(r) ? lesionLabel(lesionById(r.siteId, c || cur)) : ""; }
+  function siteLabel(r, c) { const k = siteKind(r); if (!k) return ""; if (siteMulti(k)) return siteIds(r).map((id) => lesionLabel(lesionById(id, c || cur))).filter(Boolean).join(" / "); return lesionLabel(lesionById(r.siteId, c || cur)); }
   function newLesion(vessel, side) { const L = { id: Math.random().toString(36).slice(2, 9), vessel: vessel || "", segs: [], free: "" }; if (side !== undefined) L.side = side; return L; }
   function renderLesions() {
     const box = $("#lesionBox"); const SM = siteMaster();
@@ -507,7 +518,7 @@
     const chip = (cls, data, on, text) => '<button type="button" class="chip ' + cls + (on ? " on" : "") + '" ' + data + ">" + esc(text) + "</button>";
     let h = '<div class="row" style="align-items:center; gap:10px"><span class="stat" style="margin:0">治療対象（' + (limb ? "患側・血管" : "血管・セグメント") + "）</span>" +
       '<div class="chips">' + SM.vessels.map((v) => chip("", 'data-addv="' + esc(v) + '"', false, "＋" + v)).join("") + "</div></div>";
-    if (!ls.length) h += '<div class="stat">治療した血管を押してください。1 枝ならステント・DCB は自動でその血管に、2 枝以上なら行ごとに選びます</div>';
+    if (!ls.length) h += '<div class="stat">治療した血管を押してください。1 枝ならステント・DCB・デバルキングは自動でその血管に、2 枝以上なら行ごとに選びます</div>';
     ls.forEach((L, i) => {
       h += '<div class="lesion" data-li="' + i + '"><span class="lbl">病変 ' + (i + 1) + "</span>";
       if (limb) h += '<div class="chips">' + SM.sides.map((sd) => chip("", 'data-side="' + sd + '"', L.side === sd, sd)).join("") + "</div>";
@@ -517,7 +528,7 @@
       if (SM.freeHint && SM.freeHint[L.vessel]) h += '<input type="text" class="free" data-free="1" placeholder="' + esc(SM.freeHint[L.vessel]) + '" value="' + esc(L.free || "") + '">';
       h += '<b style="font-family:var(--mono); font-size:13px">' + esc(lesionLabel(L)) + '</b><button type="button" class="btn sm danger x" data-ldel="' + i + '">×</button></div>';
     });
-    if (ls.length >= 2) h += '<div class="stat">' + ls.length + " 病変。ステント・DCB の行で部位を選んでください（同じデバイスは 1 か所だけ）</div>";
+    if (ls.length >= 2) h += '<div class="stat">' + ls.length + " 病変。ステント・DCB・デバルキングの行で部位を選んでください（ステント・DCB は 1 か所だけ、デバルキングは複数可）</div>";
     box.innerHTML = h;
   }
   function onLesionClick(e) {
@@ -540,13 +551,14 @@
     const k = siteKind(r); if (!k || !siteMaster()) return "";
     const ls = lesions();
     if (!ls.length) return tagHtml("治療対象未入力", "warn");
+    if (siteMulti(k)) return '<span class="chips" title="' + k + ' は複数の部位を選べます">' + ls.map((L) => '<button type="button" class="chip seg' + (siteIds(r).includes(L.id) ? " on" : "") + '" data-sitetog="' + i + '" data-lid="' + esc(L.id) + '">' + esc(lesionLabel(L)) + "</button>").join("") + "</span>" + (r.siteAuto && siteIds(r).length ? '<span class="stat" style="margin:0 0 0 6px">自動</span>' : "");
     return '<select class="site" data-site="' + i + '" title="' + k + ' の留置部位"><option value="">— 部位を選ぶ —</option>' + ls.map((L) => '<option value="' + esc(L.id) + '"' + (r.siteId === L.id ? " selected" : "") + ">" + esc(lesionLabel(L)) + "</option>").join("") + "</select>" + (r.siteAuto && r.siteId ? '<span class="stat" style="margin:0 0 0 6px">自動</span>' : "");
   }
   function tagHtml(t, c) { return '<span class="tag ' + c + '">' + esc(t) + "</span>"; }
 
   function notes(r) {
     const n = [];
-    if (siteKind(r) && siteMaster() && !r.siteId) n.push([lesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
+    if (siteKind(r) && siteMaster() && !hasSite(r)) n.push([lesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
     if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
     if (r.refResolved) n.push(["REFから特定((01)未読)", "warn"]);
     if (!r.lot) n.push(["LOTなし", "warn"]); if (!r.expiry) n.push(["期限なし", "warn"]); else if (cur && r.expiry < cur.date) n.push(["期限切れ", "bad"]);
@@ -584,7 +596,7 @@
     const noLot = cur.items.filter((r) => !r.lot).length, noM = cur.items.filter((r) => r.master !== "○").length;
     const nc = cur.items.filter((r) => r.kubun === "償還不可").length, sum = cur.items.reduce((a, r) => a + (r.kubun === "償還可" ? (r.price || 0) : 0), 0);
     const nChk = cur.items.filter((r) => needsCheck(r) && !CONF[r.jan] && r.src !== "外部確認").length;
-    const noSite = siteMaster() ? cur.items.filter((r) => siteKind(r) && !r.siteId).length : 0;
+    const noSite = siteMaster() ? cur.items.filter((r) => siteKind(r) && !hasSite(r)).length : 0;
     $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件　償還合計 <b>¥" + sum.toLocaleString() + "</b>" + (nc ? "　償還不可 <b>" + nc + "</b>" : "") + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "") + (nChk ? "　要確認 <b>" + nChk + "</b>" : "") + (noSite ? "　部位未選択 <b>" + noSite + "</b>" : "");
     showMasterStat();
   }
@@ -790,6 +802,7 @@
   $("#pendAll").onchange = (e) => document.querySelectorAll(".pchk").forEach((x) => { x.checked = e.target.checked; });
   $("#tbl").addEventListener("click", async (e) => {
     const t = e.target; const d = t.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); return; }
+    const st = t.getAttribute("data-sitetog"); if (st != null && cur) { const r = cur.items[+st]; const id = t.getAttribute("data-lid"); const ids = siteIds(r); const j = ids.indexOf(id); if (j >= 0) ids.splice(j, 1); else ids.push(id); r.siteAuto = false; save(); render(); return; }
     const cf = t.getAttribute("data-conf");
     if (cf != null && cur) { const r = cur.items[+cf];
       if (CONF[r.jan]) { if (confirm("JAN " + r.jan + " の外部確認（" + CONF[r.jan].by + "）を取り消しますか？")) { delete CONF[r.jan]; saveConf(); render(); } return; }
