@@ -173,13 +173,14 @@
         <button class="btn" id="btnJson">この症例を JSON</button>
         <button class="btn" id="btnAllCsv">全症例を CSV</button>
       </div>
-      <h2 style="margin-top:22px">製品辞書</h2>
+      <!-- 製品辞書の欄は画面に出さない（2026-11-08 先生「個人的に使用するものではないので」。機能は残す） -->
+      <div style="display:none"><h2 style="margin-top:22px">製品辞書</h2>
       <div class="row">
         <button class="btn" id="btnKikiLoad">📚 院内辞書を読み込む</button>
         <input type="file" id="kikiIn" accept=".js,text/javascript,application/javascript" style="display:none">
         <button class="btn" id="btnConfCsv">外部確認済み CSV</button>
         <button class="btn sm danger" id="btnKikiDel">院内辞書を消す</button>
-      </div>
+      </div></div>
       <!-- 辞書の内訳・使い方の説明は画面に出さない（2026-11-07 先生の指示。中身は progress.md と各フォルダの説明書きにある） -->
     </div>
   </section>
@@ -261,7 +262,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.5";
+  const VERSION = "2026-11-08.6";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -565,6 +566,13 @@
     if (siteMulti(k)) return '<span class="chips" title="' + k + ' は複数の部位を選べます">' + ls.map((L) => '<button type="button" class="chip seg' + (siteIds(r).includes(L.id) ? " on" : "") + '" data-sitetog="' + i + '" data-lid="' + esc(L.id) + '">' + esc(lesionLabel(L)) + "</button>").join("") + "</span>" + (r.siteAuto && siteIds(r).length ? '<span class="stat" style="margin:0 0 0 6px">自動</span>' : "");
     return '<select class="site" data-site="' + i + '" title="' + k + ' の留置部位"><option value="">— 部位を選ぶ —</option>' + ls.map((L) => '<option value="' + esc(L.id) + '"' + (r.siteId === L.id ? " selected" : "") + ">" + esc(lesionLabel(L)) + "</option>").join("") + "</select>" + (r.siteAuto && r.siteId ? '<span class="stat" style="margin:0 0 0 6px">自動</span>' : "");
   }
+  // 部位を選ぶデバイスに部位が付いていない症例があれば CSV を出さない（レジストリに部位なしで飛ばさないため）
+  function siteGate(cases) {
+    const miss = [];
+    for (const c of cases) { if (!siteMaster(c)) continue; autoSite(c); const n = c.items.filter((r) => siteKind(r) && !hasSite(r)).length; if (n) miss.push(caseKey(c) + "：" + n + " 行" + (validLesions(c).length ? "" : "（治療対象が未入力）")); }
+    if (!miss.length) return true;
+    alert("ステント・DCB・デバルキングの部位が選ばれていないため CSV を出せません。\n「使用デバイス」の部位の列で選んでください。\n\n" + miss.join("\n")); return false;
+  }
   function tagHtml(t, c) { return '<span class="tag ' + c + '">' + esc(t) + "</span>"; }
 
   function notes(r) {
@@ -836,11 +844,11 @@
   $("#btnKikiDel").onclick = async () => { if (!confirm("この端末に保存した院内辞書を消しますか？（読み取り済みの台帳は消えません）")) return; try { await idbDo("readwrite", (st) => st.delete(IDB.key)); } catch (e) {} K = null; REFIDX = null; showMasterStat(); log("院内辞書を消しました（再読み込みで反映）"); };
   $("#btnConfCsv").onclick = () => download("外部確認済み_" + today() + ".csv", csv(Object.keys(CONF).sort().map((j) => { const c = CONF[j]; return [jan13(j), c.maker, c.name, c.size, c.model, c.hinban, c.by, c.at]; }), ["JAN", "メーカー", "品名", "サイズ", "型番", "品番", "確認先", "確認日時"]), "text/csv");
   $("#tbl").addEventListener("blur", (e) => { const f = e.target.getAttribute && e.target.getAttribute("data-f"); if (f && cur) { const r = cur.items[+e.target.getAttribute("data-i")]; const v = e.target.textContent.trim(); if (r[f] !== v) { r[f] = v; (r.warn = r.warn || []).includes("手入力") || r.warn.push("手入力"); save(); render(); } } }, true);
-  $("#btnCsv").onclick = () => cur && download(caseKey(cur) + ".csv", csv(rows(cur)), "text/csv");
-  $("#btnJimu").onclick = () => cur && download("事務_" + caseKey(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
-  $("#btnJimuAll").onclick = () => download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
+  $("#btnCsv").onclick = () => cur && siteGate([cur]) && download(caseKey(cur) + ".csv", csv(rows(cur)), "text/csv");
+  $("#btnJimu").onclick = () => cur && siteGate([cur]) && download("事務_" + caseKey(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
+  $("#btnJimuAll").onclick = () => siteGate(Object.values(db.cases)) && download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
   $("#btnJson").onclick = () => cur && download(caseKey(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
-  $("#btnAllCsv").onclick = () => download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
+  $("#btnAllCsv").onclick = () => siteGate(Object.values(db.cases)) && download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
   if (new URLSearchParams(location.search).get("selftest") === "1") setTimeout(() => $("#btnSelfTest").click(), 300);
   $("#btnSelfTest").onclick = () => {
     if (!cur) newCase();
