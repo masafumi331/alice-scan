@@ -34,6 +34,8 @@
   html[data-theme="alice"] td.mono, html[data-theme="alice"] .lesion b { font-variant-numeric:tabular-nums; letter-spacing:0; }
   html[data-theme="alice"] #scan { font-size:18px; letter-spacing:0; }
   html[data-theme="alice"] .brand, html[data-theme="alice"] h2, html[data-theme="alice"] .brand small { color:#30243F; }
+  /* 左上のマーク: 紫の配色ではバイオレットの角丸にラベンダーの心電図線（黒地に水色は黒テーマ用） */
+  html[data-theme="alice"] .brand svg rect { fill:#6F4CC3; } html[data-theme="alice"] .brand svg path { stroke:#EDE6FA; }
   html[data-theme="alice"] .ok { color:#18794E; border-color:rgba(24,121,78,.45); background:#EAF7EF; } html[data-theme="alice"] .warn { background:#FFF4D6; } html[data-theme="alice"] .bad { background:#FFF0F0; }
   html[data-theme="alice"] .chip.on { background:#6F4CC3; } html[data-theme="alice"] .chip.seg.on { background:#D8C9F1; color:#30243F; border-color:#D8C9F1; }
   html[data-theme="alice"] tr.siterow td { background:rgba(216,201,241,.18); }
@@ -281,7 +283,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.13";
+  const VERSION = "2026-11-08.14";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
