@@ -262,7 +262,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.7";
+  const VERSION = "2026-11-08.8";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -910,6 +910,8 @@
     log("自己テスト: 13本流しました（分割バーコードの統合込み）");
   };
   const first = latestCase(); if (first) openCase(first); else render();
+  // 起動時の入力欄は「今日・ID なし・手技は自動」にしておく（前回の症例は下の台帳に開いたまま。2026-11-08 先生「手技日は基本的に本日」）
+  $("#cDate").value = today(); $("#cPid").value = ""; $("#cProc").value = "自動";
   showMasterStat(); initKiki().then(initGudid);
   // デバッグ用（ブラウザのコンソールから解読を試すため）
   window.AliceScan = { getReader, cam, diagText, addScan, hit, openCam, closeCam };
