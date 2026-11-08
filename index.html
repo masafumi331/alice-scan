@@ -81,8 +81,9 @@
   .chip:disabled { opacity:.3; cursor:default; } .chip:disabled:hover { border-color:var(--btn-border); color:var(--ink); }
   .lesion { flex-direction:column; align-items:stretch; gap:8px; }
   .lesion .line { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .lesion .line.segline { padding-left:94px; }
-  @media (max-width: 640px) { .lesion .line.segline { padding-left:0; } }
+  .lesion .line.segline { padding-left:0; }
+  .lesion .line .x { margin-left:0; }
+
   .lesion { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
   .lesion .lbl { font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--muted); min-width:84px; }
   .lesion input.free { min-width:110px; padding:6px 10px; font-size:13px; }
@@ -262,7 +263,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.9";
+  const VERSION = "2026-11-08.10";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -513,15 +514,15 @@
     coronary: { procs: ["PCI", "CAG"], vessels: ["RCA", "LAD", "LCX", "LMT", "graft", "その他"],
       segs: { RCA: ["#1", "#2", "#3", "#4PD", "#4AV"], LMT: ["#5"], LAD: ["#6", "#7", "#8", "#9", "#10"], LCX: ["#11", "#12", "#13", "#14", "#15"], graft: [], "その他": [] },
       freeHint: { graft: "例 SVG-RCA, LITA-LAD", "その他": "血管名" } },
-    limb: { procs: ["EVT"], sides: ["右", "左"], vessels: ["CIA", "EIA", "IIA", "CFA", "SFA", "Pop", "TPT", "ATA", "PTA", "Pero", "DP", "その他"], freeHint: { "その他": "例 腎動脈, 鎖骨下動脈" } }
+    limb: { procs: ["EVT"], sides: ["右", "左"], vessels: ["CIA", "EIA", "IIA", "CFA", "SFA", "Pop", "TPT", "ATA", "PTA", "Pero", "DP", "その他"], sites: ["近位", "中位", "遠位", "びまん性"], freeHint: { "その他": "例 腎動脈, 鎖骨下動脈" } }
   };
   function siteMaster(c) { c = c || cur; if (!c) return null; if (SITE.coronary.procs.includes(c.proc)) return SITE.coronary; if (SITE.limb.procs.includes(c.proc)) return SITE.limb; return null; }
   function lesions(c) { c = c || cur; if (!c) return []; if (!Array.isArray(c.lesions)) c.lesions = []; return c.lesions; }
-  function validLesions(c) { return lesions(c).filter((L) => L.vessel); }   // 血管が選ばれている病変だけ（病変 1 は空のまま常に表示するので）
+  function validLesions(c) { return lesions(c).filter((L) => L.vessel && (L.side === undefined || L.side)); }   // 血管（EVT は患側も）が選ばれている病変だけ（病変 1 は空のまま常に表示するので）
   function lesionLabel(L) {
     if (!L) return "";
     const v = L.vessel === "その他" || L.vessel === "graft" ? (L.free || L.vessel) : L.vessel;
-    if (L.side != null) return (L.side || "") + v;
+    if (L.side != null) return [(L.side || "") + v].concat(L.sites || []).join(" ");
     return [v].concat(L.segs || []).join(" ");
   }
   function lesionById(id, c) { return validLesions(c).find((L) => L.id === id) || null; }
@@ -566,19 +567,27 @@
     const ls = lesions(); const limb = !!SM.sides;
     if (!ls.length) ls.push(newLesion("", limb ? "" : undefined));   // 病変 1 は常に表示
     const chip = (cls, data, on, text, dis) => '<button type="button" class="chip ' + cls + (on ? " on" : "") + '" ' + data + (dis ? " disabled" : "") + ">" + esc(text) + "</button>";
-    let h = '<div class="stat" style="margin:0">治療対象（' + (limb ? "患側・血管" : "血管・セグメント") + "）　1 枝ならステント・DCB・デバルキングは自動でその血管に、2 枝以上なら行ごとに選びます</div>";
+    const line = (label, inner, first) => '<div class="line' + (first ? "" : " segline") + '">' + (first ? "" : '<span class="stat" style="margin:0; min-width:134px; text-align:right">' + esc(label) + "</span>") + inner + "</div>";
+    let h = '<div class="stat" style="margin:0">治療対象（' + (limb ? "患側・血管・部位" : "血管・セグメント") + "）　1 枝ならステント・DCB・デバルキングは自動でその血管に、2 枝以上なら行ごとに選びます</div>";
     ls.forEach((L, i) => {
-      h += '<div class="lesion" data-li="' + i + '"><div class="line"><span class="lbl">病変 ' + (i + 1) + "</span>";
-      if (limb) h += '<div class="chips">' + SM.sides.map((sd) => chip("", 'data-side="' + sd + '"', L.side === sd, sd)).join("") + "</div>";
-      h += '<div class="chips">' + SM.vessels.map((v) => chip("", 'data-v="' + esc(v) + '"', L.vessel === v, v, vesselTaken(L, v, ls))).join("") + "</div>";
-      if (SM.freeHint && SM.freeHint[L.vessel]) h += '<input type="text" class="free" data-free="1" placeholder="' + esc(SM.freeHint[L.vessel]) + '" value="' + esc(L.free || "") + '">';
-      h += '<b style="font-family:var(--mono); font-size:13px">' + esc(lesionLabel(L)) + "</b>" + (ls.length > 1 || L.vessel ? '<button type="button" class="btn sm danger x" data-ldel="' + i + '" title="この病変を外す">×</button>' : "") + "</div>";
-      const segs = !limb && SM.segs[L.vessel] || [];
-      if (segs.length) h += '<div class="line segline"><span class="stat" style="margin:0">セグメント（複数可）</span><div class="chips">' + segs.map((sg) => chip("seg", 'data-seg="' + esc(sg) + '"', (L.segs || []).includes(sg), sg)).join("") + "</div></div>";
+      const ok = L.vessel && (!limb || L.side);
+      h += '<div class="lesion" data-li="' + i + '">';
+      // 1 行目: 病変 N ＋（EVT なら患側、PCI なら血管）＋ 表示名 ＋ ×
+      const head = '<span class="lbl">病変 ' + (i + 1) + "</span>";
+      const tail = '<b style="font-family:var(--mono); font-size:13px; margin-left:auto">' + esc(lesionLabel(L)) + "</b>" + (!ok && (L.vessel || L.side) ? tagHtml(limb && !L.side ? "患側を選んでください" : "血管を選んでください", "warn") : "") + (ls.length > 1 || L.vessel || L.side ? '<button type="button" class="btn sm danger x" data-ldel="' + i + '" title="この病変を外す" style="margin-left:6px">×</button>' : "");
+      if (limb) {
+        h += line("", head + '<span class="stat" style="margin:0; min-width:40px">患側</span><div class="chips">' + SM.sides.map((sd) => chip("", 'data-side="' + sd + '"', L.side === sd, sd)).join("") + "</div>" + tail, true);
+        h += line("血管", '<div class="chips">' + SM.vessels.map((v) => chip("", 'data-v="' + esc(v) + '"', L.vessel === v, v, vesselTaken(L, v, ls))).join("") + "</div>" + (SM.freeHint && SM.freeHint[L.vessel] ? '<input type="text" class="free" data-free="1" placeholder="' + esc(SM.freeHint[L.vessel]) + '" value="' + esc(L.free || "") + '">' : ""));
+        if (L.vessel) h += line("部位（複数可）", '<div class="chips">' + SM.sites.map((st) => chip("seg", 'data-site="' + esc(st) + '"', (L.sites || []).includes(st), st)).join("") + "</div>");
+      } else {
+        h += line("", head + '<span class="stat" style="margin:0; min-width:40px">血管</span><div class="chips">' + SM.vessels.map((v) => chip("", 'data-v="' + esc(v) + '"', L.vessel === v, v, vesselTaken(L, v, ls))).join("") + "</div>" + (SM.freeHint && SM.freeHint[L.vessel] ? '<input type="text" class="free" data-free="1" placeholder="' + esc(SM.freeHint[L.vessel]) + '" value="' + esc(L.free || "") + '">' : "") + tail, true);
+        const segs = SM.segs[L.vessel] || [];
+        if (segs.length) h += line("セグメント（複数可）", '<div class="chips">' + segs.map((sg) => chip("seg", 'data-seg="' + esc(sg) + '"', (L.segs || []).includes(sg), sg)).join("") + "</div>");
+      }
       h += "</div>";
     });
     const last = ls[ls.length - 1];
-    if (last.vessel) h += '<div class="row" style="margin-top:10px"><button type="button" class="btn sm" data-addl="1">' + (ls.length === 1 ? "２枝以上を治療" : "＋ さらに枝を追加（" + (ls.length + 1) + " 枝目）") + "</button></div>";
+    if (last.vessel && (!limb || last.side)) h += '<div class="row" style="margin-top:10px"><button type="button" class="btn sm" data-addl="1">' + (ls.length === 1 ? "２枝以上を治療" : "＋ さらに枝を追加（" + (ls.length + 1) + " 枝目）") + "</button></div>";
     const nv = validLesions().length;
     if (nv >= 2) h += '<div class="stat">' + nv + " 枝。ステント・DCB・デバルキングの行で部位を選んでください（ステント・DCB は 1 か所だけ、デバルキングは複数可）</div>";
     box.innerHTML = h;
@@ -586,11 +595,12 @@
   function onLesionClick(e) {
     const t = e.target.closest("button"); if (!t || !cur || t.disabled) return;
     const SM = siteMaster(); if (!SM) return; const ls = lesions();
-    if (t.getAttribute("data-addl") != null) { const prev = ls[ls.length - 1]; ls.push(newLesion("", SM.sides ? (prev && prev.side) || "" : undefined)); autoSite(); save(); render(); return; }
+    if (t.getAttribute("data-addl") != null) { ls.push(newLesion("", SM.sides ? "" : undefined)); autoSite(); save(); render(); return; }
     const del = t.getAttribute("data-ldel"); if (del != null) { ls.splice(+del, 1); autoSite(); save(); render(); return; }
     const row = t.closest(".lesion"); if (!row) return; const L = ls[+row.getAttribute("data-li")]; if (!L) return;
     const sd = t.getAttribute("data-side"); if (sd != null) { L.side = sd; autoSite(); save(); render(); return; }
-    const v = t.getAttribute("data-v"); if (v != null) { if (vesselTaken(L, v, ls)) return; if (L.vessel !== v) { L.vessel = v; L.segs = []; L.free = ""; } autoSite(); save(); render(); return; }
+    const v = t.getAttribute("data-v"); if (v != null) { if (vesselTaken(L, v, ls)) return; if (L.vessel !== v) { L.vessel = v; L.segs = []; L.sites = []; L.free = ""; } autoSite(); save(); render(); return; }
+    const st = t.getAttribute("data-site"); if (st != null) { L.sites = L.sites || []; const i = L.sites.indexOf(st); if (i >= 0) L.sites.splice(i, 1); else { L.sites.push(st); L.sites.sort((a, b) => SM.sites.indexOf(a) - SM.sites.indexOf(b)); } save(); render(); return; }
     const sg = t.getAttribute("data-seg"); if (sg != null) { const i = L.segs.indexOf(sg); if (i >= 0) L.segs.splice(i, 1); else { L.segs.push(sg); L.segs.sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10) || a.localeCompare(b)); } save(); render(); }
   }
   function onLesionInput(e) {
