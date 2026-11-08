@@ -263,7 +263,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.10";
+  const VERSION = "2026-11-08.11";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -928,7 +928,10 @@
   };
   function runSelfTest(name) {
     const set = SELF[name]; if (!set) return;
-    $("#cDate").value = today(); $("#cPid").value = set.pid; $("#cProc").value = "自動"; newCase();
+    // 同じテスト症例（今日・同じ TEST-ID）が残っていれば消して作り直す（2 回押すと同じ症例に合流して 2 セット分になるため）
+    const d = today(); let removed = 0; for (const k of Object.keys(db.cases)) { const c = db.cases[k]; if (c.date === d && c.pid === set.pid) { delete db.cases[k]; removed++; } }
+    if (removed) { cur = null; log("前の自己テスト症例（" + set.pid + "）を消して作り直します"); }
+    $("#cDate").value = d; $("#cPid").value = set.pid; $("#cProc").value = "自動"; newCase();
     set.codes.forEach((x) => addScan(x, true));
     log("自己テスト " + name + ": " + set.codes.length + " 本流しました → 症例 " + caseKey(cur) + "（手技の判定: " + cur.proc + "）");
   }
