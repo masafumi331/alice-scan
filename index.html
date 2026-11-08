@@ -133,7 +133,7 @@
     <div class="row">
       <label class="f">手技日<span class="row" style="gap:6px"><input type="date" id="cDate" style="min-width:150px"><button class="btn sm" id="btnToday" type="button">今日</button></span></label>
       <label class="f">患者ID または 識別番号（バーコード可）<input type="text" id="cPid" placeholder="空欄なら日付ごとの仮番号（仮1, 仮2…）" inputmode="numeric"></label>
-      <label class="f">手技<select id="cProc"><option value="自動">自動（読み取りから判定）</option><option>PCI</option><option>CAG</option><option>EVT</option><option>PM</option><option>アブレーション</option><option>TAVI</option><option>その他</option></select></label>
+      <label class="f">手技<select id="cProc"><option value="自動">自動（読み取りから判定）</option><option>PCI</option><option>CAG</option><option>EVT</option><option>PM</option><option>アブレーション</option><option>SHD</option><option>その他</option></select></label>
       <button class="btn primary" id="btnNewCase">症例を開始 →</button>
     </div>
     <div class="row" style="margin-top:10px">
@@ -154,7 +154,7 @@
         <button class="btn" id="btnPhoto">📸 写真を撮って読む</button>
         <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none">
         <button class="btn sm" id="btnFocus">リーダー入力にフォーカス</button>
-        <button class="btn sm" id="btnSelfTest">自己テスト 13本</button>
+        <label class="f" style="flex-direction:row; align-items:center; gap:6px; text-transform:none; letter-spacing:0"><select id="selfSet" style="padding:7px 30px 7px 10px; min-width:0; font-size:13px"><option value="all">全部（8 症例）</option><option>PCI</option><option>EVT</option><option>アブレーション</option><option>PM</option><option>SHD（TAVI）</option><option>SHD（ASD閉鎖）</option><option>SHD（左心耳閉鎖）</option><option>CAG</option></select><button class="btn sm" id="btnSelfTest" type="button">自己テスト</button></label>
       </div>
       <details style="margin-top:12px"><summary>複数行を貼り付けて取り込む</summary>
         <textarea id="paste" placeholder="1行1バーコード。括弧付き HRI でも生文字列でも可"></textarea>
@@ -262,7 +262,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.8";
+  const VERSION = "2026-11-08.9";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -300,17 +300,18 @@
   }
   // 読み取ったデバイス（特定保険医療材料名・品名）から手技を判定。PM・アブレーション・TAVI は専用品で決まる。PCI と EVT は点数の多い方。CAG は造影カテーテルだけのとき
   function inferProc(c) {
-    const sc = { PCI: 0, EVT: 0, PM: 0, "アブレーション": 0, TAVI: 0, CAG: 0 };
+    const sc = { PCI: 0, EVT: 0, PM: 0, "アブレーション": 0, SHD: 0, CAG: 0 };
     for (const r of c.items) {
       if (r.master !== "○") continue; const h = (r.hoken || "") + " " + (r.name || "");
-      if (/ペースメーカ|植込み型除細動|除細動器|心臓再同期|(^|[^A-Za-z])(ICD|CRT)([^A-Za-z]|$)|リードレス|ペーシングリード|植込み型.*リード/i.test(h)) sc.PM += 3;
-      else if (/心筋焼灼|アブレーション|ablation|マッピング|電極カテーテル|心腔内超音波|冷凍/i.test(h)) sc["アブレーション"] += 3;
-      else if (/経カテーテル人工生体弁|経カテーテル.*弁|TAVI|TAVR/i.test(h)) sc.TAVI += 3;
+      if (/心筋焼灼|アブレーション|ablation|マッピング|電極カテーテル|カテーテル電極|電気生理|冷凍/i.test(h)) sc["アブレーション"] += 3;
+      else if (/ペースメーカ|植込み型除細動|植込型除細動|除細動器|心臓再同期|(^|[^A-Za-z])(ICD|CRT)([^A-Za-z]|$)|リードレス|ペーシングリード|植込式.*リード/i.test(h)) sc.PM += 3;
+      else if (/経カテーテル人工生体弁|経カテーテル.*弁|TAVI|TAVR|心房中隔欠損|卵円孔|左心耳|僧帽弁クリップ|経皮的僧帽弁|三尖弁/i.test(h)) sc.SHD += 3;
+      else if (/心腔内超音波/.test(h)) { sc["アブレーション"] += 1; sc.SHD += 1; }
       else if (/冠動脈|PTCA|経皮的冠動脈形成術|心臓手術用カテーテル/i.test(h)) sc.PCI += 2;
       else if (/末梢血管用|PTAバルーン|アテレクトミー|末梢|下肢|腸骨|大腿|膝窩/i.test(h)) sc.EVT += 2;
       else if (/血管造影用カテーテル/.test(h)) sc.CAG += 1;
     }
-    const top = ["PM", "アブレーション", "TAVI", "PCI", "EVT"].sort((a, b) => sc[b] - sc[a]);
+    const top = ["PM", "アブレーション", "SHD", "PCI", "EVT"].sort((a, b) => sc[b] - sc[a]);
     if (sc[top[0]] >= 2 && sc[top[0]] > sc[top[1]]) return top[0];
     if (sc[top[0]] === 0 && sc.CAG >= 1) return "CAG";
     return "";
@@ -901,14 +902,27 @@
   // 症例を開いたまま手技を選び直したら、その症例の手技を変える（鍵・ファイル名も付け直す）
   $("#cProc").onchange = () => { if (cur && $("#cProc").value !== cur.proc) { setProc($("#cProc").value, true); render(); } };
   if (new URLSearchParams(location.search).get("selftest") === "1") setTimeout(() => $("#btnSelfTest").click(), 300);
-  $("#btnSelfTest").onclick = () => {
-    if (!cur) newCase();
-    ["(01)00763000632199(17)290328(10)0013360105", "(10)0013360105", "(240)ONYXNG35018JX", "(01)04987892138416(17)280731(10)260820(93)000372",
+  // 自己テスト: 手技ごとのサンプル（公開辞書にある JAN。LOT・期限は架空）。各セットを「TEST-手技」の症例として流し、手技の自動判定・部位・CSV の流れを確かめる
+  const gs = (jan, exp, lot) => "(01)" + String(jan).padStart(14, "0") + "(17)" + exp + "(10)" + lot;
+  const SELF = {
+    "PCI": { pid: "TEST-PCI", codes: ["(01)00763000632199(17)290328(10)0013360105", "(10)0013360105", "(240)ONYXNG35018JX", "(01)04987892138416(17)280731(10)260820(93)000372",
       "(240)FG75431-2512(10)07A260701A(241)C2AIVL2512(17)280630(01)00195451000591", "]C101045473271236241729063010260709A10F", "(01)04547327123624(17)290630", "(10)260709A10F",
-      "(01)04987350607973(17)270900(10)241031", "(01)00845225002831(17)280821(10)0303861421(21)103442(90)300005381762", "(01)10850000491530(17)280228(10)602231-1", "(01)04544043107617(17)310131(10)PP25Z26", "(01)04987350462855(17)280831(10)250926"]
-      .forEach((x) => addScan(x, true));
-    log("自己テスト: 13本流しました（分割バーコードの統合込み）");
+      "(01)04987350607973(17)270900(10)241031", "(01)00845225002831(17)280821(10)0303861421(21)103442(90)300005381762", "(01)10850000491530(17)280228(10)602231-1", "(01)04544043107617(17)310131(10)PP25Z26", "(01)04987350462855(17)280831(10)250926"] },
+    "EVT": { pid: "TEST-EVT", codes: [gs("4987350076038", "280930", "T26E01"), gs("4547327049610", "290131", "T26E02"), gs("4540778125735", "281130", "T26E03"), gs("4987664108609", "280630", "T26E04"), gs("4987350615398", "290630", "T26E05"), gs("8714729889861", "270831", "T26E06"), gs("4987350379030", "280228", "T26E07")] },
+    "アブレーション": { pid: "TEST-ABL", codes: [gs("4544881126382", "280430", "T26A01"), gs("4987482178693", "270930", "T26A02"), gs("4545985100759", "281031", "T26A03"), gs("4545985002244", "281031", "T26A04"), gs("4987482101967", "280131", "T26A05"), gs("763000171070", "270630", "T26A06")] },
+    "PM": { pid: "TEST-PM", codes: [gs("4035479174026", "290331", "T26P01"), gs("4035479118259", "290331", "T26P02"), gs("4035479118280", "290331", "T26P03"), gs("4035479000769", "300131", "T26P04"), gs("4987350071712", "280731", "T26P05")] },
+    "SHD（TAVI）": { pid: "TEST-TAVI", codes: [gs("690103194791", "280531", "T26T01"), gs("4543043078545", "281231", "T26T02"), gs("4987350274670", "280930", "T26T03"), gs("4987350379030", "280228", "T26T04"), gs("4987350379030", "280228", "T26T05")] },
+    "SHD（ASD閉鎖）": { pid: "TEST-ASD", codes: [gs("4260182520659", "280831", "T26S01"), gs("4260182520413", "280831", "T26S02"), gs("4987482178693", "270930", "T26S03"), gs("4544881126382", "280430", "T26S04")] },
+    "SHD（左心耳閉鎖）": { pid: "TEST-LAA", codes: [gs("191506004606", "280731", "T26L01"), gs("4987482178693", "270930", "T26L02"), gs("4544881126382", "280430", "T26L03"), gs("4987350379030", "280228", "T26L04")] },
+    "CAG": { pid: "TEST-CAG", codes: [gs("4987350071712", "280731", "T26C01"), gs("4987350274670", "280930", "T26C02"), gs("4543043116940", "281130", "T26C03"), gs("4543043078545", "281231", "T26C04"), gs("4987350451439", "290131", "T26C05")] }
   };
+  function runSelfTest(name) {
+    const set = SELF[name]; if (!set) return;
+    $("#cDate").value = today(); $("#cPid").value = set.pid; $("#cProc").value = "自動"; newCase();
+    set.codes.forEach((x) => addScan(x, true));
+    log("自己テスト " + name + ": " + set.codes.length + " 本流しました → 症例 " + caseKey(cur) + "（手技の判定: " + cur.proc + "）");
+  }
+  $("#btnSelfTest").onclick = () => { const v = $("#selfSet").value; if (v === "all") Object.keys(SELF).forEach(runSelfTest); else runSelfTest(v); };
   const first = latestCase(); if (first) openCase(first); else render();
   // 起動時の入力欄は「今日・ID なし・手技は自動」にしておく（前回の症例は下の台帳に開いたまま。2026-11-08 先生「手技日は基本的に本日」）
   $("#cDate").value = today(); $("#cPid").value = ""; $("#cProc").value = "自動";
