@@ -132,8 +132,8 @@
     <p class="eyebrow">Case</p>
     <div class="row">
       <label class="f">手技日<span class="row" style="gap:6px"><input type="date" id="cDate" style="min-width:150px"><button class="btn sm" id="btnToday" type="button">今日</button></span></label>
-      <label class="f">患者ID（バーコード可）<input type="text" id="cPid" placeholder="リストバンドを読むか入力" inputmode="numeric"></label>
-      <label class="f">手技<select id="cProc"><option>PCI</option><option>CAG</option><option>EVT</option><option>PM</option><option>アブレーション</option><option>TAVI</option><option>その他</option></select></label>
+      <label class="f">患者ID または 識別番号（バーコード可）<input type="text" id="cPid" placeholder="空欄なら日付ごとの仮番号（仮1, 仮2…）" inputmode="numeric"></label>
+      <label class="f">手技<select id="cProc"><option value="自動">自動（読み取りから判定）</option><option>PCI</option><option>CAG</option><option>EVT</option><option>PM</option><option>アブレーション</option><option>TAVI</option><option>その他</option></select></label>
       <button class="btn primary" id="btnNewCase">症例を開始 →</button>
     </div>
     <div class="row" style="margin-top:10px">
@@ -262,9 +262,16 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.6";
+  const VERSION = "2026-11-08.7";
   let db = load(); let cur = null;
-  function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
+  function load() {
+    let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
+    // 旧データ: 患者ID が空で仮番号が無い症例に、日付・手技ごとの連番（仮1, 仮2…）を付けて鍵を付け直す
+    for (const k of Object.keys(d.cases).sort((a, b) => (d.cases[a].created || "").localeCompare(d.cases[b].created || ""))) {
+      const c = d.cases[k]; if (c.pid || c.seq) continue; c.seq = nextSeq(c, d); const nk = caseKey(c); if (nk !== k) { delete d.cases[k]; d.cases[nk] = c; }
+    }
+    return d;
+  }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
   function latestCase() { let best = null, bt = ""; for (const k of Object.keys(db.cases)) { const u = db.cases[k].updated || db.cases[k].created || ""; if (u > bt) { bt = u; best = k; } } return best || Object.keys(db.cases).sort().reverse()[0]; }
   // 別のタブ・別の画面で読んだ分を取り込む（localStorage は共有だがメモリ上の db は各タブ別）
@@ -277,9 +284,40 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
   function log(s) { const el = $("#log"); el.innerHTML = '<span class="n">' + hhmm(now()) + "</span> " + esc(s) + "\n" + el.innerHTML; }
 
-  function caseKey(c) { return c.date + "_" + (c.pid || "noid") + "_" + c.proc; }
+  // 患者ID が空の症例は「仮N」（同じ日付・同じ手技の中で 1 から順。施設が ID を入れたくないときのため）
+  function idLabel(c) { return c.pid || ("仮" + (c.seq || 0)); }
+  function nextSeq(c, d) { let m = 0; for (const o of Object.values((d || db).cases)) if (o !== c && !o.pid && o.date === c.date && o.proc === c.proc && o.seq > m) m = o.seq; return m + 1; }
+  function caseKey(c) { return c.date + "_" + idLabel(c) + "_" + c.proc; }
+  function fileBase(c) { return c.date + "-" + idLabel(c) + "-" + c.proc; }   // 保存ファイル名: 日付-ID-手技
+  // 手技を変える（手で選び直す／読み取りから判定）: 鍵とファイル名が変わるので付け直す。同じ患者・日付・手技の症例が既にあればそこへ合流
+  function setProc(p, manual) {
+    if (!cur || !p || cur.proc === p) return;
+    const old = caseKey(cur); cur.proc = p; if (!cur.pid) cur.seq = nextSeq(cur);
+    const nk = caseKey(cur); const ex = db.cases[nk];
+    if (ex && ex !== cur) { ex.items.push(...cur.items); if (!ex.lesions || !ex.lesions.length) ex.lesions = cur.lesions || []; delete db.cases[old]; cur = ex; log("同じ症例 " + nk + " に合流しました"); }
+    else { delete db.cases[old]; db.cases[nk] = cur; }
+    $("#cProc").value = cur.proc; save(); log((manual ? "手技を変更: " : "手技を判定: ") + old + " → " + caseKey(cur));
+  }
+  // 読み取ったデバイス（特定保険医療材料名・品名）から手技を判定。PM・アブレーション・TAVI は専用品で決まる。PCI と EVT は点数の多い方。CAG は造影カテーテルだけのとき
+  function inferProc(c) {
+    const sc = { PCI: 0, EVT: 0, PM: 0, "アブレーション": 0, TAVI: 0, CAG: 0 };
+    for (const r of c.items) {
+      if (r.master !== "○") continue; const h = (r.hoken || "") + " " + (r.name || "");
+      if (/ペースメーカ|植込み型除細動|除細動器|心臓再同期|(^|[^A-Za-z])(ICD|CRT)([^A-Za-z]|$)|リードレス|ペーシングリード|植込み型.*リード/i.test(h)) sc.PM += 3;
+      else if (/心筋焼灼|アブレーション|ablation|マッピング|電極カテーテル|心腔内超音波|冷凍/i.test(h)) sc["アブレーション"] += 3;
+      else if (/経カテーテル人工生体弁|経カテーテル.*弁|TAVI|TAVR/i.test(h)) sc.TAVI += 3;
+      else if (/冠動脈|PTCA|経皮的冠動脈形成術|心臓手術用カテーテル/i.test(h)) sc.PCI += 2;
+      else if (/末梢血管用|PTAバルーン|アテレクトミー|末梢|下肢|腸骨|大腿|膝窩/i.test(h)) sc.EVT += 2;
+      else if (/血管造影用カテーテル/.test(h)) sc.CAG += 1;
+    }
+    const top = ["PM", "アブレーション", "TAVI", "PCI", "EVT"].sort((a, b) => sc[b] - sc[a]);
+    if (sc[top[0]] >= 2 && sc[top[0]] > sc[top[1]]) return top[0];
+    if (sc[top[0]] === 0 && sc.CAG >= 1) return "CAG";
+    return "";
+  }
   function newCase() {
     const c = { date: $("#cDate").value || today(), pid: $("#cPid").value.trim(), proc: $("#cProc").value, created: now(), items: [], lesions: [] };
+    if (!c.pid) c.seq = nextSeq(c);
     const k = caseKey(c);
     if (db.cases[k]) { cur = db.cases[k]; log("既存の症例を開きました: " + k); }
     else { db.cases[k] = c; cur = c; log("新しい症例: " + k); }
@@ -573,6 +611,16 @@
     if (!miss.length) return true;
     alert("ステント・DCB・デバルキングの部位が選ばれていないため CSV を出せません。\n「使用デバイス」の部位の列で選んでください。\n\n" + miss.join("\n")); return false;
   }
+  // 保存（CSV）前の確認: 部位 → 手技が未判定 → 患者ID なし（仮番号のまま出すと後で突合しにくい）
+  const NL = String.fromCharCode(10);
+  function exportGate(cases) {
+    if (!siteGate(cases)) return false;
+    const noProc = cases.filter((c) => c.proc === "自動").map(caseKey);
+    if (noProc.length && !confirm("手技が未判定の症例があります（読み取ったデバイスから決められませんでした）。上の「手技」で選んでから保存することを勧めます。" + NL + NL + noProc.join(NL) + NL + NL + "このまま保存しますか？")) return false;
+    const noId = cases.filter((c) => !c.pid).map(caseKey);
+    if (noId.length && !confirm("患者ID／識別番号が入っていない症例があります。仮番号（日付ごとの連番）で保存しますが、あとで症例と突き合わせにくくなります。" + NL + NL + noId.join(NL) + NL + NL + "このまま保存しますか？")) return false;
+    return true;
+  }
   function tagHtml(t, c) { return '<span class="tag ' + c + '">' + esc(t) + "</span>"; }
 
   function notes(r) {
@@ -591,11 +639,12 @@
     (r.warn || []).forEach((w) => n.push([w, "warn"])); return n;
   }
   function render(flashLast) {
+    if (cur && cur.proc === "自動") setProc(inferProc(cur));
     renderPending(); if (cur) autoSite(); renderLesions();
     const sel = $("#caseSel"); sel.innerHTML = "";
     Object.keys(db.cases).sort().reverse().forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = k + "（" + db.cases[k].items.length + "）"; sel.appendChild(o); });
     if (cur) sel.value = caseKey(cur);
-    $("#caseStat").innerHTML = cur ? "現在の症例 <b>" + esc(caseKey(cur)) + "</b>" + "" : "症例が未選択です。上の欄を入れて「症例を開始」";
+    $("#caseStat").innerHTML = cur ? "現在の症例 <b>" + esc(caseKey(cur)) + "</b>" + (cur.proc === "自動" ? "　手技は読み取ったデバイスから判定します（手で選んでも可）" : "") + (!cur.pid ? "　患者ID が無いので仮番号 <b>" + esc(idLabel(cur)) + "</b>（" + esc(cur.date) + " の " + esc(cur.proc) + " " + (cur.seq || 0) + " 件目）" : "") : "症例が未選択です。上の欄を入れて「症例を開始」";
     const tb = $("#tbl tbody"); tb.innerHTML = "";
     if (!cur) { $("#tableStat").textContent = ""; return; }
     const tag = (t, c) => '<span class="tag ' + c + '">' + esc(t) + "</span>";
@@ -626,8 +675,8 @@
   const COLS = ["症例キー", "手技日", "患者ID", "手技", "治療対象", "部位種別", "治療部位", "読取時刻", "GTIN", "JAN", "医事コード", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "償還区分", "特定保険医療材料名", "償還価格", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "入数", "マスター照合", "マスター出典", "分類", "販売状況", "外部確認", "注意", "原文字列", "PMDA添付文書"];
   // 事務（医事課）向け: 請求に要る列だけ、1行1個
   const JCOLS = ["手技日", "患者ID", "手技", "治療部位", "医事コード", "償還区分", "特定保険医療材料名（機能区分）", "償還価格", "数量", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "JAN", "LOT", "使用期限", "備考"];
-  function jrows(c) { return c.items.map((r) => [c.date, c.pid, c.proc, siteLabel(r, c), r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
-  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, validLesions(c).map(lesionLabel).join("; "), siteKind(r), siteLabel(r, c), r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>"), r.jan ? pmdaUrl(r.jan) : ""]); }
+  function jrows(c) { return c.items.map((r) => [c.date, idLabel(c), c.proc, siteLabel(r, c), r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, idLabel(c), c.proc, validLesions(c).map(lesionLabel).join("; "), siteKind(r), siteLabel(r, c), r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>"), r.jan ? pmdaUrl(r.jan) : ""]); }
   function mkr(r) { return r.maker || (r.master !== "○" && guessMaker(r.jan) ? "（推定）" + guessMaker(r.jan) : ""); }
   function csv(rs, cols) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [cols || COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
@@ -844,11 +893,13 @@
   $("#btnKikiDel").onclick = async () => { if (!confirm("この端末に保存した院内辞書を消しますか？（読み取り済みの台帳は消えません）")) return; try { await idbDo("readwrite", (st) => st.delete(IDB.key)); } catch (e) {} K = null; REFIDX = null; showMasterStat(); log("院内辞書を消しました（再読み込みで反映）"); };
   $("#btnConfCsv").onclick = () => download("外部確認済み_" + today() + ".csv", csv(Object.keys(CONF).sort().map((j) => { const c = CONF[j]; return [jan13(j), c.maker, c.name, c.size, c.model, c.hinban, c.by, c.at]; }), ["JAN", "メーカー", "品名", "サイズ", "型番", "品番", "確認先", "確認日時"]), "text/csv");
   $("#tbl").addEventListener("blur", (e) => { const f = e.target.getAttribute && e.target.getAttribute("data-f"); if (f && cur) { const r = cur.items[+e.target.getAttribute("data-i")]; const v = e.target.textContent.trim(); if (r[f] !== v) { r[f] = v; (r.warn = r.warn || []).includes("手入力") || r.warn.push("手入力"); save(); render(); } } }, true);
-  $("#btnCsv").onclick = () => cur && siteGate([cur]) && download(caseKey(cur) + ".csv", csv(rows(cur)), "text/csv");
-  $("#btnJimu").onclick = () => cur && siteGate([cur]) && download("事務_" + caseKey(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
-  $("#btnJimuAll").onclick = () => siteGate(Object.values(db.cases)) && download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
-  $("#btnJson").onclick = () => cur && download(caseKey(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
-  $("#btnAllCsv").onclick = () => siteGate(Object.values(db.cases)) && download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
+  $("#btnCsv").onclick = () => cur && exportGate([cur]) && download(fileBase(cur) + ".csv", csv(rows(cur)), "text/csv");
+  $("#btnJimu").onclick = () => cur && exportGate([cur]) && download("事務_" + fileBase(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
+  $("#btnJimuAll").onclick = () => exportGate(Object.values(db.cases)) && download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
+  $("#btnJson").onclick = () => cur && exportGate([cur]) && download(fileBase(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
+  $("#btnAllCsv").onclick = () => exportGate(Object.values(db.cases)) && download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
+  // 症例を開いたまま手技を選び直したら、その症例の手技を変える（鍵・ファイル名も付け直す）
+  $("#cProc").onchange = () => { if (cur && $("#cProc").value !== cur.proc) { setProc($("#cProc").value, true); render(); } };
   if (new URLSearchParams(location.search).get("selftest") === "1") setTimeout(() => $("#btnSelfTest").click(), 300);
   $("#btnSelfTest").onclick = () => {
     if (!cur) newCase();
