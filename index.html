@@ -77,6 +77,12 @@
   .chip:hover { border-color:var(--cyan); color:var(--cyan); }
   .chip.on { background:var(--cyan); color:var(--accent-ink); border-color:var(--cyan); }
   .chip.seg { padding:4px 10px; font-size:12px; font-family:var(--mono); font-weight:500; }
+  tr.siterow td { background:color-mix(in srgb, var(--cyan) 5%, transparent); }
+  .chip:disabled { opacity:.3; cursor:default; } .chip:disabled:hover { border-color:var(--btn-border); color:var(--ink); }
+  .lesion { flex-direction:column; align-items:stretch; gap:8px; }
+  .lesion .line { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .lesion .line.segline { padding-left:94px; }
+  @media (max-width: 640px) { .lesion .line.segline { padding-left:0; } }
   .lesion { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:12px; margin-top:8px; }
   .lesion .lbl { font-family:var(--mono); font-size:12px; letter-spacing:.08em; color:var(--muted); min-width:84px; }
   .lesion input.free { min-width:110px; padding:6px 10px; font-size:13px; }
@@ -255,7 +261,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.4";
+  const VERSION = "2026-11-08.5";
   let db = load(); let cur = null;
   function load() { try { return JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { return { cases: {} }; } }
   function save() { if (cur) cur.updated = now(); try { localStorage.setItem(LS, JSON.stringify(db)); } catch (e) { log("保存できません: " + e.message); } }
@@ -471,13 +477,14 @@
   };
   function siteMaster(c) { c = c || cur; if (!c) return null; if (SITE.coronary.procs.includes(c.proc)) return SITE.coronary; if (SITE.limb.procs.includes(c.proc)) return SITE.limb; return null; }
   function lesions(c) { c = c || cur; if (!c) return []; if (!Array.isArray(c.lesions)) c.lesions = []; return c.lesions; }
+  function validLesions(c) { return lesions(c).filter((L) => L.vessel); }   // 血管が選ばれている病変だけ（病変 1 は空のまま常に表示するので）
   function lesionLabel(L) {
     if (!L) return "";
     const v = L.vessel === "その他" || L.vessel === "graft" ? (L.free || L.vessel) : L.vessel;
     if (L.side != null) return (L.side || "") + v;
     return [v].concat(L.segs || []).join(" ");
   }
-  function lesionById(id, c) { return lesions(c).find((L) => L.id === id) || null; }
+  function lesionById(id, c) { return validLesions(c).find((L) => L.id === id) || null; }
   // 部位の記録が要るデバイス（ステント・DCB は 1 か所、デバルキングは複数か所可）。特定保険医療材料名を先に、無ければ品名で判定。冠動脈・末梢以外のステント（胆道・尿管・脳血管など）は対象外
   // デバルキングの範囲はカテ記録の debulk 分類に合わせる：ロータブレーター・Diamondback・Shockwave IVL・ELCA・DCA（冠動脈）、Jetstream・HawkOne・Crosser・Rotarex・Auryon・末梢 IVL（下肢）
   function siteKind(r) {
@@ -494,7 +501,7 @@
   // 1 病変なら自動で全部その部位に。2 病変以上なら選んでもらう（自動で付けた分は外して選び直し）。同じデバイスは 1 か所だけ
   function autoSite(c) {
     c = c || cur; if (!c || !siteMaster(c)) return;
-    const ls = lesions(c);
+    const ls = validLesions(c);
     for (const r of c.items) {
       const k = siteKind(r); if (!k) continue;
       if (siteMulti(k)) {
@@ -510,36 +517,40 @@
   }
   function siteLabel(r, c) { const k = siteKind(r); if (!k) return ""; if (siteMulti(k)) return siteIds(r).map((id) => lesionLabel(lesionById(id, c || cur))).filter(Boolean).join(" / "); return lesionLabel(lesionById(r.siteId, c || cur)); }
   function newLesion(vessel, side) { const L = { id: Math.random().toString(36).slice(2, 9), vessel: vessel || "", segs: [], free: "" }; if (side !== undefined) L.side = side; return L; }
+  // 他の病変で選んだ血管は薄くして選べない（graft・その他は別の血管を複数書けるので除く。EVT は同じ患側のときだけ）
+  function vesselTaken(L, v, ls) { if (v === "graft" || v === "その他") return false; return ls.some((o) => o !== L && o.vessel === v && (o.side === undefined || !o.side || !L.side || o.side === L.side)); }
   function renderLesions() {
     const box = $("#lesionBox"); const SM = siteMaster();
     if (!cur || !SM) { box.style.display = "none"; box.innerHTML = ""; return; }
     box.style.display = "block";
     const ls = lesions(); const limb = !!SM.sides;
-    const chip = (cls, data, on, text) => '<button type="button" class="chip ' + cls + (on ? " on" : "") + '" ' + data + ">" + esc(text) + "</button>";
-    let h = '<div class="row" style="align-items:center; gap:10px"><span class="stat" style="margin:0">治療対象（' + (limb ? "患側・血管" : "血管・セグメント") + "）</span>" +
-      '<div class="chips">' + SM.vessels.map((v) => chip("", 'data-addv="' + esc(v) + '"', false, "＋" + v)).join("") + "</div></div>";
-    if (!ls.length) h += '<div class="stat">治療した血管を押してください。1 枝ならステント・DCB・デバルキングは自動でその血管に、2 枝以上なら行ごとに選びます</div>';
+    if (!ls.length) ls.push(newLesion("", limb ? "" : undefined));   // 病変 1 は常に表示
+    const chip = (cls, data, on, text, dis) => '<button type="button" class="chip ' + cls + (on ? " on" : "") + '" ' + data + (dis ? " disabled" : "") + ">" + esc(text) + "</button>";
+    let h = '<div class="stat" style="margin:0">治療対象（' + (limb ? "患側・血管" : "血管・セグメント") + "）　1 枝ならステント・DCB・デバルキングは自動でその血管に、2 枝以上なら行ごとに選びます</div>";
     ls.forEach((L, i) => {
-      h += '<div class="lesion" data-li="' + i + '"><span class="lbl">病変 ' + (i + 1) + "</span>";
+      h += '<div class="lesion" data-li="' + i + '"><div class="line"><span class="lbl">病変 ' + (i + 1) + "</span>";
       if (limb) h += '<div class="chips">' + SM.sides.map((sd) => chip("", 'data-side="' + sd + '"', L.side === sd, sd)).join("") + "</div>";
-      h += '<div class="chips">' + SM.vessels.map((v) => chip("", 'data-v="' + esc(v) + '"', L.vessel === v, v)).join("") + "</div>";
-      const segs = !limb && SM.segs[L.vessel] || [];
-      if (segs.length) h += '<div class="chips">' + segs.map((sg) => chip("seg", 'data-seg="' + esc(sg) + '"', (L.segs || []).includes(sg), sg)).join("") + "</div>";
+      h += '<div class="chips">' + SM.vessels.map((v) => chip("", 'data-v="' + esc(v) + '"', L.vessel === v, v, vesselTaken(L, v, ls))).join("") + "</div>";
       if (SM.freeHint && SM.freeHint[L.vessel]) h += '<input type="text" class="free" data-free="1" placeholder="' + esc(SM.freeHint[L.vessel]) + '" value="' + esc(L.free || "") + '">';
-      h += '<b style="font-family:var(--mono); font-size:13px">' + esc(lesionLabel(L)) + '</b><button type="button" class="btn sm danger x" data-ldel="' + i + '">×</button></div>';
+      h += '<b style="font-family:var(--mono); font-size:13px">' + esc(lesionLabel(L)) + "</b>" + (ls.length > 1 || L.vessel ? '<button type="button" class="btn sm danger x" data-ldel="' + i + '" title="この病変を外す">×</button>' : "") + "</div>";
+      const segs = !limb && SM.segs[L.vessel] || [];
+      if (segs.length) h += '<div class="line segline"><span class="stat" style="margin:0">セグメント（複数可）</span><div class="chips">' + segs.map((sg) => chip("seg", 'data-seg="' + esc(sg) + '"', (L.segs || []).includes(sg), sg)).join("") + "</div></div>";
+      h += "</div>";
     });
-    if (ls.length >= 2) h += '<div class="stat">' + ls.length + " 病変。ステント・DCB・デバルキングの行で部位を選んでください（ステント・DCB は 1 か所だけ、デバルキングは複数可）</div>";
+    const last = ls[ls.length - 1];
+    if (last.vessel) h += '<div class="row" style="margin-top:10px"><button type="button" class="btn sm" data-addl="1">' + (ls.length === 1 ? "２枝以上を治療" : "＋ さらに枝を追加（" + (ls.length + 1) + " 枝目）") + "</button></div>";
+    const nv = validLesions().length;
+    if (nv >= 2) h += '<div class="stat">' + nv + " 枝。ステント・DCB・デバルキングの行で部位を選んでください（ステント・DCB は 1 か所だけ、デバルキングは複数可）</div>";
     box.innerHTML = h;
   }
   function onLesionClick(e) {
-    const t = e.target.closest("button"); if (!t || !cur) return;
+    const t = e.target.closest("button"); if (!t || !cur || t.disabled) return;
     const SM = siteMaster(); if (!SM) return; const ls = lesions();
-    const av = t.getAttribute("data-addv");
-    if (av != null) { const prev = ls[ls.length - 1]; ls.push(newLesion(av, SM.sides ? (prev && prev.side) || "" : undefined)); autoSite(); save(); render(); return; }
+    if (t.getAttribute("data-addl") != null) { const prev = ls[ls.length - 1]; ls.push(newLesion("", SM.sides ? (prev && prev.side) || "" : undefined)); autoSite(); save(); render(); return; }
     const del = t.getAttribute("data-ldel"); if (del != null) { ls.splice(+del, 1); autoSite(); save(); render(); return; }
     const row = t.closest(".lesion"); if (!row) return; const L = ls[+row.getAttribute("data-li")]; if (!L) return;
-    const sd = t.getAttribute("data-side"); if (sd != null) { L.side = sd; save(); render(); return; }
-    const v = t.getAttribute("data-v"); if (v != null) { if (L.vessel !== v) { L.vessel = v; L.segs = []; L.free = ""; } save(); render(); return; }
+    const sd = t.getAttribute("data-side"); if (sd != null) { L.side = sd; autoSite(); save(); render(); return; }
+    const v = t.getAttribute("data-v"); if (v != null) { if (vesselTaken(L, v, ls)) return; if (L.vessel !== v) { L.vessel = v; L.segs = []; L.free = ""; } autoSite(); save(); render(); return; }
     const sg = t.getAttribute("data-seg"); if (sg != null) { const i = L.segs.indexOf(sg); if (i >= 0) L.segs.splice(i, 1); else { L.segs.push(sg); L.segs.sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10) || a.localeCompare(b)); } save(); render(); }
   }
   function onLesionInput(e) {
@@ -549,7 +560,7 @@
   }
   function siteCell(r, i) {
     const k = siteKind(r); if (!k || !siteMaster()) return "";
-    const ls = lesions();
+    const ls = validLesions();
     if (!ls.length) return tagHtml("治療対象未入力", "warn");
     if (siteMulti(k)) return '<span class="chips" title="' + k + ' は複数の部位を選べます">' + ls.map((L) => '<button type="button" class="chip seg' + (siteIds(r).includes(L.id) ? " on" : "") + '" data-sitetog="' + i + '" data-lid="' + esc(L.id) + '">' + esc(lesionLabel(L)) + "</button>").join("") + "</span>" + (r.siteAuto && siteIds(r).length ? '<span class="stat" style="margin:0 0 0 6px">自動</span>' : "");
     return '<select class="site" data-site="' + i + '" title="' + k + ' の留置部位"><option value="">— 部位を選ぶ —</option>' + ls.map((L) => '<option value="' + esc(L.id) + '"' + (r.siteId === L.id ? " selected" : "") + ">" + esc(lesionLabel(L)) + "</option>").join("") + "</select>" + (r.siteAuto && r.siteId ? '<span class="stat" style="margin:0 0 0 6px">自動</span>' : "");
@@ -558,7 +569,7 @@
 
   function notes(r) {
     const n = [];
-    if (siteKind(r) && siteMaster() && !hasSite(r)) n.push([lesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
+    if (siteKind(r) && siteMaster() && !hasSite(r)) n.push([validLesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
     if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
     if (r.refResolved) n.push(["REFから特定((01)未読)", "warn"]);
     if (!r.lot) n.push(["LOTなし", "warn"]); if (!r.expiry) n.push(["期限なし", "warn"]); else if (cur && r.expiry < cur.date) n.push(["期限切れ", "bad"]);
@@ -580,7 +591,9 @@
     const tb = $("#tbl tbody"); tb.innerHTML = "";
     if (!cur) { $("#tableStat").textContent = ""; return; }
     const tag = (t, c) => '<span class="tag ' + c + '">' + esc(t) + "</span>";
-    cur.items.forEach((r, i) => {
+    // 部位を選ぶデバイス（ステント・DCB・デバルキング）を上に。番号・編集・削除は元の行番号（i）のまま
+    const order = cur.items.map((r, i) => i); if (siteMaster()) order.sort((a, b) => (siteKind(cur.items[b]) ? 1 : 0) - (siteKind(cur.items[a]) ? 1 : 0) || a - b);
+    order.forEach((i) => { const r = cur.items[i];
       const tr = document.createElement("tr");
       tr.innerHTML = "<td class='mono'>" + String(i + 1).padStart(2, "0") + "</td><td class='mono'>" + hhmm(r.at) + "</td><td>" + (r.master !== "○" && !r.maker && guessMaker(r.jan) ? '<span style="opacity:.7">（推定）' + esc(guessMaker(r.jan)) + "</span>" : esc(r.maker)) + "</td><td class='name'>" + esc(r.name) + "</td><td>" + esc([r.size, r.shape].filter(Boolean).join(" / ")) + "</td><td>" + siteCell(r, i) + "</td>" +
         "<td>" + (r.master === "○" ? (r.kubun === "償還不可" ? tag(r.hoken, "warn") : esc(r.hoken)) : "") + "</td>" +
@@ -591,6 +604,7 @@
         '<td class="chk">' + (r.jan ? '<a class="lk" href="' + pmdaUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA の添付文書を開く">PMDA</a>' + (r.master !== "○" ? '<a class="lk" href="' + webUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA に無いときの予備">ネット検索</a>' : "") + '<button class="lk' + (CONF[r.jan] ? " done" : "") + '" data-conf="' + i + '">' + (CONF[r.jan] ? "✓済" : "✓確認") + "</button>" : "") + "</td><td>" +
         notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
+      if (siteKind(r) && siteMaster()) tr.classList.add("siterow");
       tb.appendChild(tr);
     });
     const noLot = cur.items.filter((r) => !r.lot).length, noM = cur.items.filter((r) => r.master !== "○").length;
@@ -605,7 +619,7 @@
   // 事務（医事課）向け: 請求に要る列だけ、1行1個
   const JCOLS = ["手技日", "患者ID", "手技", "治療部位", "医事コード", "償還区分", "特定保険医療材料名（機能区分）", "償還価格", "数量", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "JAN", "LOT", "使用期限", "備考"];
   function jrows(c) { return c.items.map((r) => [c.date, c.pid, c.proc, siteLabel(r, c), r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
-  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, lesions(c).map(lesionLabel).join("; "), siteKind(r), siteLabel(r, c), r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>"), r.jan ? pmdaUrl(r.jan) : ""]); }
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, c.pid, c.proc, validLesions(c).map(lesionLabel).join("; "), siteKind(r), siteLabel(r, c), r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>"), r.jan ? pmdaUrl(r.jan) : ""]); }
   function mkr(r) { return r.maker || (r.master !== "○" && guessMaker(r.jan) ? "（推定）" + guessMaker(r.jan) : ""); }
   function csv(rs, cols) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [cols || COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
