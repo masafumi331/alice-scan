@@ -21,6 +21,18 @@
   html[data-theme="light-soft"] { --bg:#f3f1ec; --bg2:#fbfaf7; --bg3:#f0ede7; --ink:#2b323c; --muted:#6b737e; --dim:#9aa1aa; --line:rgba(40,45,55,.11); --cyan:#4b78a6; --cyan2:#5d8bb8; --coral:#c4636b; --gold:#9e7c2c; --accent-ink:#ffffff; --body-bg:#f3f1ec; --fx:0; --header-bg:rgba(243,241,236,.9); --card-bg:#fbfaf7; --card-shadow:0 4px 14px rgba(40,45,55,.06); --th-bg:#f0ede7; --scan-bg:#ffffff; --btn-border:rgba(40,45,55,.22); --hover:rgba(40,45,55,.03); }
   /* Alice EDC のデザインシート（H:/Dropbox/alice-design-sheet.pdf v1.1）に合わせた配色。白を主面に、紫は操作と選択に。見出しはディーププラム */
   html[data-theme="alice"] { --bg:#F7F5FA; --bg2:#ffffff; --bg3:#F3F0F9; --ink:#292631; --muted:#5B6576; --dim:#8E93A1; --line:rgba(48,36,63,.12); --cyan:#6F4CC3; --cyan2:#30243F; --coral:#C93838; --gold:#9A5B00; --accent-ink:#ffffff; --body-bg:#F7F5FA; --fx:0; --header-bg:rgba(247,245,250,.9); --card-bg:#ffffff; --card-shadow:0 6px 20px rgba(48,36,63,.07); --th-bg:#F3F0F9; --scan-bg:#ffffff; --btn-border:rgba(48,36,63,.24); --hover:rgba(111,76,195,.05); --ok-bg:#EAF7EF; --ok-ink:#18794E; }
+  /* 書体もデザインシートどおり: Windows は Segoe UI／Yu Gothic UI、Mac は San Francisco／ヒラギノ角ゴシック。本文 16px・一覧とステータス 14px・見出し 20px。数字は等幅数字で右揃え */
+  html[data-theme="alice"] { --disp:"Segoe UI",-apple-system,BlinkMacSystemFont,"Yu Gothic UI","Hiragino Sans","Hiragino Kaku Gothic ProN","Meiryo",sans-serif; --jp:"Segoe UI",-apple-system,BlinkMacSystemFont,"Yu Gothic UI","Hiragino Sans","Hiragino Kaku Gothic ProN","Meiryo",sans-serif; --mono:"Segoe UI",-apple-system,BlinkMacSystemFont,"Yu Gothic UI","Hiragino Sans","Meiryo",sans-serif; font-variant-numeric:tabular-nums; }
+  html[data-theme="alice"] body { font-size:16px; }
+  html[data-theme="alice"] .brand { font-weight:700; letter-spacing:.02em; }
+  html[data-theme="alice"] .eyebrow, html[data-theme="alice"] label.f, html[data-theme="alice"] th, html[data-theme="alice"] .brand small, html[data-theme="alice"] .status { letter-spacing:.04em; text-transform:none; }
+  html[data-theme="alice"] .eyebrow { font-size:13px; font-weight:600; }
+  html[data-theme="alice"] label.f { font-size:13px; }
+  html[data-theme="alice"] table, html[data-theme="alice"] .stat, html[data-theme="alice"] #log, html[data-theme="alice"] .tag { font-size:14px; letter-spacing:0; }
+  html[data-theme="alice"] th { font-size:13px; font-weight:600; letter-spacing:.02em; }
+  html[data-theme="alice"] .tag { font-size:12px; letter-spacing:.02em; }
+  html[data-theme="alice"] td.mono, html[data-theme="alice"] .lesion b { font-variant-numeric:tabular-nums; letter-spacing:0; }
+  html[data-theme="alice"] #scan { font-size:18px; letter-spacing:0; }
   html[data-theme="alice"] .brand, html[data-theme="alice"] h2, html[data-theme="alice"] .brand small { color:#30243F; }
   html[data-theme="alice"] .ok { color:#18794E; border-color:rgba(24,121,78,.45); background:#EAF7EF; } html[data-theme="alice"] .warn { background:#FFF4D6; } html[data-theme="alice"] .bad { background:#FFF0F0; }
   html[data-theme="alice"] .chip.on { background:#6F4CC3; } html[data-theme="alice"] .chip.seg.on { background:#D8C9F1; color:#30243F; border-color:#D8C9F1; }
@@ -269,7 +281,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.12";
+  const VERSION = "2026-11-08.13";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
