@@ -169,13 +169,17 @@
   <section class="split">
     <div class="card hot">
       <p class="eyebrow">Scan</p>
-      <div class="scanwrap"><input id="scan" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="バーコードリーダーで読む（Enter で確定）"></div>
+      <div class="scanwrap"><input id="scan" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="バーコードリーダーで読む（常時受付・Enter で確定）"></div>
       <div class="row" style="margin-top:14px">
         <button class="btn primary" id="btnCam">📷 カメラで読む（iPad / スマホ）</button>
         <button class="btn" id="btnPhoto">📸 写真を撮って読む</button>
         <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none">
         <button class="btn sm" id="btnFocus">リーダー入力にフォーカス</button>
         <label class="f" style="flex-direction:row; align-items:center; gap:6px; text-transform:none; letter-spacing:0"><select id="selfSet" style="padding:7px 30px 7px 10px; min-width:0; font-size:13px"><option value="all">全部（8 症例）</option><option>PCI</option><option>EVT</option><option>アブレーション</option><option>PM</option><option>SHD（TAVI）</option><option>SHD（ASD閉鎖）</option><option>SHD（左心耳閉鎖）</option><option>CAG</option></select><button class="btn sm" id="btnSelfTest" type="button">自己テスト</button></label>
+      </div>
+      <div class="row" id="recvRow" style="margin-top:10px; align-items:center; gap:10px">
+        <label class="f" style="flex-direction:row; align-items:center; gap:7px; text-transform:none; letter-spacing:0; margin:0; font-size:13px; color:var(--ink)"><input type="checkbox" id="recvChk" style="width:auto; min-width:0"> 🔫 スキャナー常時受付（どこを触っていても読み取る）</label>
+        <span id="recvStat" class="stat" style="margin:0"></span>
       </div>
       <details style="margin-top:12px"><summary>複数行を貼り付けて取り込む</summary>
         <textarea id="paste" placeholder="1行1バーコード。括弧付き HRI でも生文字列でも可"></textarea>
@@ -283,7 +287,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.16";
+  const VERSION = "2026-11-08.18";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -479,9 +483,25 @@
     return PID_RE.test(String(text).trim());
   }
   function setPid(id) { $("#cPid").value = id; if (!$("#cDate").value) $("#cDate").value = today(); newCase(); log("患者ID を読み取りました: " + id + " → 症例を開始"); }
+  // GS1 構造（(01) など）が無い「ただの数字バーコード」を製品とみなせるか判定する。
+  // ①製品辞書にあれば製品 ②13/14 桁で EAN/GTIN のチェックディジットが正しければ製品（辞書に無くても製品バーコードとみなす）。
+  // いずれでもなければ null（＝患者ID 等として扱う）。これで家電・製品のバーコードが患者IDに化けて誤って症例を作るのを防ぐ。
+  function resolveBareProduct(d) {
+    if (!/^\d{8,14}$/.test(d)) return null;
+    const g14 = d.padStart(14, "0");
+    const janU = GS1.gtinToJan(GS1.unitGtin(g14)); if (lookup(janU)) return g14;   // 梱包単位→単品に直して辞書照合
+    const jan0 = GS1.gtinToJan(g14); if (jan0 !== janU && lookup(jan0)) return g14;
+    if ((d.length === 13 || d.length === 14) && GS1.gtinCheck(g14)) return g14;     // 患者ID の取り違え防止のため、桁無指定の照合は 13/14 桁に限る
+    return null;
+  }
   function addScan(text, quiet) {
     const p = GS1.parse(text);
-    if (looksLikePid(text, p) || !p.ok) { if (PID_RE.test(String(text).trim())) { setPid(String(text).trim()); return null; } log("解釈できません: " + text); return null; }
+    if (looksLikePid(text, p) || !p.ok) {
+      const t = String(text).trim();
+      if (!p.ok) { const g = resolveBareProduct(t); if (g) return addScan("(01)" + g, quiet); }   // ただの数字でも製品と分かれば製品として取り込む
+      if (PID_RE.test(t)) { setPid(t); return null; }
+      log("解釈できません: " + text); return null;
+    }
     if (!cur) newCase();
     const r = GS1.toRecord(p); r.at = now(); resolvePack(r);
     const items = cur.items; const last = items[items.length - 1];
@@ -894,8 +914,58 @@
   $("#btnLoadCase").onclick = () => openCase($("#caseSel").value);
   $("#btnDelCase").onclick = () => { const k = $("#caseSel").value; if (k && confirm(k + " を削除しますか？（元に戻せません）")) { delete db.cases[k]; if (cur && caseKey(cur) === k) cur = null; save(); render(); } };
   $("#btnFocus").onclick = () => $("#scan").focus();
-  $("#scan").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const v = e.target.value; e.target.value = ""; if (v.trim()) addScan(v); } });
-  $("#scan").addEventListener("input", (e) => { const v = e.target.value; if (/[\r\n]/.test(v)) { e.target.value = ""; v.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); } });
+
+  // ---------- 物理バーコードリーダー（HID）常時受付 ----------
+  // スキャナーはキーボードとして文字を送るので、#scan にフォーカスしていないと別の欄に化ける／どこにも入らない。
+  // 「常時受付」ON の間は、入力欄の編集・カメラ中を除き、どこを触っていてもスキャナーの文字列を #scan に流し込む。
+  const scanEl = $("#scan");
+  const COARSE = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);  // スマホ等（画面キーボードが出る端末）ではフォーカスを強制しない
+  let RECV = (function () { try { return localStorage.getItem("scanLedger.recv") !== "0"; } catch (e) { return true; } })();
+  const camOpen = () => $("#cam") && $("#cam").style.display === "block";
+  const isField = (el) => !!(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable));
+  function updateRecvUI() {
+    const c = $("#recvChk"); if (c) c.checked = RECV;
+    const s = $("#recvStat"); if (s) { s.textContent = RECV ? "● 受付中（リーダーで読めます）" : "受付オフ（入力欄を選んでから読む）"; s.style.color = RECV ? "var(--cyan)" : "var(--muted)"; }
+  }
+  // キーを押さずにフォーカスだけ戻す（クリック・画面復帰時）。画面キーボードが出る端末では戻さない
+  function keepFocus() {
+    if (!RECV || COARSE || camOpen()) return;
+    const ae = document.activeElement;
+    if (ae === scanEl || isField(ae)) return;   // #scan か、別の入力欄を操作中は邪魔しない
+    try { scanEl.focus(); } catch (e) {}
+  }
+  // 物理キーが入力欄の外に来たら #scan に流す（最初の 1 文字も取りこぼさない）。物理キーが来た時だけ動くので端末を問わず安全
+  document.addEventListener("keydown", (e) => {
+    if (!RECV || camOpen()) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const ae = document.activeElement;
+    if (ae === scanEl || isField(ae)) return;   // 既に入力欄にいる（#scan は自前の処理へ、別欄は尊重）
+    if (e.key === "Enter" || e.key === "Tab") { const v = scanEl.value; scanEl.value = ""; if (v.trim()) addScan(v); e.preventDefault(); return; }
+    if (e.key && e.key.length === 1) { scanEl.value += e.key; e.preventDefault(); try { scanEl.focus(); } catch (x) {} }
+  }, true);
+
+  // 確定: Enter / Tab、CR/LF 混入、さらに「終端文字を送らないスキャナー」向けに無操作で自動確定（速い連打＝スキャナーの時だけ）
+  let flushT = null, burstStart = 0, burstN = 0;
+  scanEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const v = e.target.value; e.target.value = ""; burstN = 0; if (v.trim()) addScan(v); } });
+  scanEl.addEventListener("input", (e) => {
+    const v = e.target.value;
+    if (/[\r\n]/.test(v)) { e.target.value = ""; burstN = 0; v.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); return; }
+    const t = Date.now();
+    if (burstN === 0 || t - burstStart > 1500) { burstStart = t; burstN = 0; }
+    burstN++;
+    clearTimeout(flushT);
+    flushT = setTimeout(() => {
+      const s = scanEl.value.trim(); if (!s) return;
+      const elapsed = Date.now() - burstStart, cps = elapsed > 0 ? (burstN / elapsed) * 1000 : 999;
+      if (burstN >= 6 && cps >= 20) { scanEl.value = ""; burstN = 0; addScan(s); }   // 人の手入力（~5文字/秒）では発火しない
+    }, 160);
+  });
+
+  const rc = $("#recvChk"); if (rc) rc.onchange = (e) => { RECV = e.target.checked; try { localStorage.setItem("scanLedger.recv", RECV ? "1" : "0"); } catch (x) {} updateRecvUI(); keepFocus(); };
+  window.addEventListener("focus", keepFocus);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) keepFocus(); });
+  document.addEventListener("click", (e) => { const el = e.target; if (!isField(el) && !(el.closest && el.closest("button,a,select,summary,label,input,textarea"))) keepFocus(); });
+  updateRecvUI(); keepFocus();
   $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); $("#paste").value = ""; };
   $("#btnPendOk").onclick = confirmPending;
   $("#lesionBox").addEventListener("click", onLesionClick);
