@@ -9,7 +9,7 @@
 //   3) 区切り無しの生文字列（可変長 AI は末尾まで。GS が抜けたかどうかは文字列だけでは決められない → noGs / alts で知らせる）
 (function (root) {
   const GS = "\u001d";
-  const VERSION = "2026-11-13";
+  const VERSION = "2026-11-14";
   // 事前定義長の AI（後ろに GS が要らない）
   const FIXED = { "00": 18, "01": 14, "02": 14, "03": 14, "04": 16, "11": 6, "12": 6, "13": 6, "14": 6, "15": 6, "16": 6, "17": 6, "18": 6, "19": 6, "20": 2,
     "410": 13, "411": 13, "412": 13, "413": 13, "414": 13, "415": 13, "416": 13 };
@@ -191,6 +191,7 @@
   }
   // リーダー確認用のコード（GS1 の見本用の番号。製品ではない）。LOT とシリアルの後ろの GS 2 か所が届くかを見る
   const TEST = { gtin: "09506000134352",
+    short: { label: "短い確認用コード（GS1-128）", raw: "1000" + GS + "17991231", lot: "00", exp: "991231", gs: 1 },
     linear: { label: "GS1-128（一次元）", raw: "010950600013435210TEST128A" + GS + "21SN128B" + GS + "17301231", lot: "TEST128A", serial: "SN128B", exp: "301231" },
     matrix: { label: "GS1 DataMatrix（二次元）", raw: "010950600013435210TESTDMA" + GS + "21SNDMB" + GS + "17301231", lot: "TESTDMA", serial: "SNDMB", exp: "301231" } };
   root.GS1 = { VERSION, parse, expiry, dateInfo, gtinToJan, unitGtin, gtinCheck, checkDigit, toRecord, applyAlt, visible, aiSpec, NAMES, GS, TEST };

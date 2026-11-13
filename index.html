@@ -190,9 +190,19 @@
       </details>
       <details style="margin-top:8px" id="rdBox"><summary>リーダーの確認（LOT・期限の区切りが届くか）<span id="rdStat" style="margin-left:8px; font-size:12px"></span></summary>
         <div class="stat" style="margin-top:8px; line-height:1.7">下の確認用コードを、使うリーダーでそのまま読んでください（別の画面に映すか、印刷して）。台帳には入りません。LOT とシリアルの後ろにある区切り（GS）が届いているかを判定し、結果をこの端末に残します。一次元しか読めないリーダーは左だけで構いません。</div>
+        <div id="rdPrintArea">
+        <div style="background:#fff; padding:22px 16px 16px; border-radius:10px; margin-top:10px">
+          <svg id="rdShort" viewBox="0 0 143 50" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="短い確認用コード" style="display:block; width:286px; height:110px"><g id="barcode" fill="#000000"><rect x="0" y="0" width="143" height="50" fill="#FFFFFF"/><path d="M10 0h2v50h-2ZM13 0h1v50h-1ZM16 0h3v50h-3ZM21 0h4v50h-4ZM26 0h1v50h-1ZM28 0h3v50h-3ZM32 0h2v50h-2ZM36 0h1v50h-1ZM40 0h1v50h-1ZM43 0h2v50h-2ZM46 0h2v50h-2ZM50 0h2v50h-2ZM54 0h4v50h-4ZM59 0h1v50h-1ZM61 0h3v50h-3ZM65 0h1v50h-1ZM68 0h3v50h-3ZM73 0h2v50h-2ZM76 0h1v50h-1ZM78 0h3v50h-3ZM82 0h4v50h-4ZM87 0h1v50h-1ZM89 0h2v50h-2ZM93 0h3v50h-3ZM98 0h2v50h-2ZM101 0h2v50h-2ZM106 0h2v50h-2ZM109 0h3v50h-3ZM113 0h1v50h-1ZM115 0h4v50h-4ZM120 0h2v50h-2ZM125 0h3v50h-3ZM129 0h1v50h-1ZM131 0h2v50h-2Z"/></g></svg>
+          <div style="color:#222; font:12px/1.5 sans-serif; margin-top:8px"><b>① まずこれを読む</b>（短い確認用コード）　<span style="font-family:monospace">(10)00(17)991231</span></div>
+          <div class="noprint" style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; color:#222; font:12px sans-serif">大きさ
+            <button class="btn sm" data-rdz="1">小</button><button class="btn sm" data-rdz="2">中</button><button class="btn sm" data-rdz="3">大</button><button class="btn sm" data-rdz="4">特大</button>
+            <button class="btn sm" id="btnRdPrint" style="margin-left:10px">🖨 印刷する（紙で読むのが確実）</button></div>
+        </div>
+        <div class="stat noprint" style="margin-top:8px; line-height:1.7">画面で読めないとき：大きさを変える／画面を明るくする／リーダーを画面から少し離して傾ける。それでも読めなければ印刷してください（液晶の画面を読めないリーダーがあります）。下の ②③ は長いコードと二次元コードで、読めるリーダーだけで構いません。</div>
         <div style="background:#fff; padding:16px; border-radius:10px; margin-top:10px; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end">
-          <div style="flex:1 1 340px; min-width:260px"><svg viewBox="0 0 1287 150" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="リーダー確認用 GS1-128" style="display:block; width:100%; max-width:560px; height:auto"><g id="barcode" fill="#000000"><rect x="0" y="0" width="1287" height="150" fill="#FFFFFF"/><path d="M30 0h6v150h-6ZM39 0h3v150h-3ZM48 0h9v150h-9ZM63 0h12v150h-12ZM78 0h3v150h-3ZM84 0h9v150h-9ZM96 0h6v150h-6ZM108 0h6v150h-6ZM117 0h6v150h-6ZM129 0h6v150h-6ZM141 0h3v150h-3ZM150 0h3v150h-3ZM162 0h6v150h-6ZM177 0h3v150h-3ZM183 0h9v150h-9ZM195 0h9v150h-9ZM207 0h12v150h-12ZM222 0h3v150h-3ZM228 0h6v150h-6ZM237 0h6v150h-6ZM249 0h6v150h-6ZM261 0h3v150h-3ZM270 0h6v150h-6ZM279 0h9v150h-9ZM294 0h3v150h-3ZM300 0h6v150h-6ZM315 0h9v150h-9ZM327 0h6v150h-6ZM336 0h9v150h-9ZM354 0h3v150h-3ZM360 0h6v150h-6ZM372 0h3v150h-3ZM384 0h3v150h-3ZM393 0h3v150h-3ZM399 0h12v150h-12ZM414 0h9v150h-9ZM426 0h6v150h-6ZM435 0h9v150h-9ZM453 0h3v150h-3ZM459 0h3v150h-3ZM471 0h6v150h-6ZM480 0h3v150h-3ZM492 0h6v150h-6ZM501 0h9v150h-9ZM513 0h3v150h-3ZM525 0h6v150h-6ZM534 0h9v150h-9ZM552 0h3v150h-3ZM558 0h3v150h-3ZM567 0h9v150h-9ZM582 0h6v150h-6ZM591 0h6v150h-6ZM603 0h9v150h-9ZM618 0h3v150h-3ZM624 0h9v150h-9ZM636 0h3v150h-3ZM645 0h6v150h-6ZM657 0h3v150h-3ZM663 0h3v150h-3ZM675 0h6v150h-6ZM690 0h12v150h-12ZM705 0h3v150h-3ZM711 0h9v150h-9ZM723 0h6v150h-6ZM735 0h9v150h-9ZM750 0h3v150h-3ZM756 0h3v150h-3ZM765 0h9v150h-9ZM780 0h6v150h-6ZM789 0h6v150h-6ZM798 0h9v150h-9ZM810 0h3v150h-3ZM822 0h3v150h-3ZM828 0h9v150h-9ZM846 0h6v150h-6ZM855 0h3v150h-3ZM864 0h9v150h-9ZM879 0h6v150h-6ZM888 0h6v150h-6ZM900 0h9v150h-9ZM915 0h3v150h-3ZM921 0h9v150h-9ZM933 0h3v150h-3ZM942 0h6v150h-6ZM954 0h3v150h-3ZM966 0h3v150h-3ZM972 0h6v150h-6ZM987 0h3v150h-3ZM993 0h9v150h-9ZM1005 0h12v150h-12ZM1020 0h12v150h-12ZM1035 0h3v150h-3ZM1041 0h9v150h-9ZM1053 0h3v150h-3ZM1062 0h9v150h-9ZM1077 0h6v150h-6ZM1086 0h6v150h-6ZM1095 0h6v150h-6ZM1104 0h6v150h-6ZM1119 0h3v150h-3ZM1125 0h6v150h-6ZM1137 0h9v150h-9ZM1152 0h6v150h-6ZM1161 0h6v150h-6ZM1176 0h6v150h-6ZM1185 0h6v150h-6ZM1194 0h9v150h-9ZM1209 0h3v150h-3ZM1218 0h6v150h-6ZM1233 0h9v150h-9ZM1245 0h3v150h-3ZM1251 0h6v150h-6Z"/></g></svg><div style="color:#222; font:11px/1.4 monospace; margin-top:6px; word-break:break-all">GS1-128　(01)09506000134352(10)TEST128A(21)SN128B(17)301231</div></div>
-          <div><svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="リーダー確認用 GS1 DataMatrix" style="display:block; width:150px; height:150px"><g id="barcode" fill="#000000"><rect x="0" y="0" width="72" height="72" fill="#FFFFFF"/><path d="M3 3h3v3h-3ZM9 3h3v3h-3ZM15 3h3v3h-3ZM21 3h3v3h-3ZM27 3h3v3h-3ZM33 3h3v3h-3ZM39 3h3v3h-3ZM45 3h3v3h-3ZM51 3h3v3h-3ZM57 3h3v3h-3ZM63 3h3v3h-3ZM3 6h6v3h-6ZM15 6h12v3h-12ZM42 6h3v9h-3ZM54 6h3v3h-3ZM66 6h3v3h-3ZM3 9h3v6h-3ZM15 9h3v3h-3ZM21 9h3v3h-3ZM30 9h6v3h-6ZM48 9h6v6h-6ZM57 9h6v3h-6ZM9 12h21v3h-21ZM36 12h3v3h-3ZM57 12h12v3h-12ZM3 15h9v3h-9ZM15 15h6v3h-6ZM27 15h3v3h-3ZM33 15h21v3h-21ZM63 15h3v3h-3ZM3 18h3v9h-3ZM18 18h6v3h-6ZM30 18h3v3h-3ZM48 18h3v3h-3ZM54 18h6v3h-6ZM66 18h3v3h-3ZM12 21h3v3h-3ZM18 21h3v3h-3ZM33 21h3v3h-3ZM42 21h3v6h-3ZM48 21h9v3h-9ZM60 21h3v3h-3ZM9 24h6v3h-6ZM18 24h6v3h-6ZM27 24h3v3h-3ZM36 24h3v3h-3ZM48 24h21v3h-21ZM3 27h9v3h-9ZM18 27h3v3h-3ZM24 27h9v3h-9ZM45 27h6v3h-6ZM57 27h6v3h-6ZM3 30h6v3h-6ZM12 30h3v3h-3ZM21 30h3v3h-3ZM27 30h6v6h-6ZM42 30h3v3h-3ZM48 30h6v3h-6ZM66 30h3v3h-3ZM3 33h9v9h-9ZM15 33h3v6h-3ZM42 33h6v3h-6ZM51 33h6v3h-6ZM63 33h3v3h-3ZM21 36h6v3h-6ZM36 36h9v3h-9ZM48 36h3v3h-3ZM57 36h3v3h-3ZM66 36h3v3h-3ZM18 39h6v3h-6ZM30 39h3v3h-3ZM36 39h3v3h-3ZM42 39h6v3h-6ZM57 39h9v3h-9ZM3 42h6v6h-6ZM18 42h3v3h-3ZM24 42h6v3h-6ZM36 42h6v3h-6ZM51 42h18v3h-18ZM12 45h9v3h-9ZM30 45h9v3h-9ZM42 45h3v3h-3ZM54 45h3v3h-3ZM60 45h3v6h-3ZM3 48h12v3h-12ZM27 48h12v3h-12ZM66 48h3v3h-3ZM3 51h6v3h-6ZM15 51h3v3h-3ZM21 51h6v3h-6ZM33 51h6v3h-6ZM48 51h6v3h-6ZM57 51h6v3h-6ZM3 54h9v3h-9ZM15 54h6v3h-6ZM24 54h3v3h-3ZM36 54h3v3h-3ZM45 54h12v3h-12ZM60 54h3v3h-3ZM66 54h3v3h-3ZM3 57h6v3h-6ZM12 57h6v3h-6ZM24 57h15v3h-15ZM48 57h3v3h-3ZM54 57h6v3h-6ZM63 57h3v3h-3ZM3 60h3v6h-3ZM18 60h9v3h-9ZM30 60h6v6h-6ZM39 60h3v3h-3ZM45 60h15v3h-15ZM63 60h6v3h-6ZM9 63h3v3h-3ZM18 63h6v3h-6ZM39 63h6v3h-6ZM51 63h3v3h-3ZM63 63h3v3h-3ZM3 66h66v3h-66Z"/></g></svg><div style="color:#222; font:11px/1.4 monospace; margin-top:6px">GS1 DataMatrix</div></div>
+          <div style="flex:1 1 340px; min-width:260px"><svg viewBox="0 0 1287 150" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="リーダー確認用 GS1-128" style="display:block; width:100%; max-width:560px; height:auto"><g id="barcode" fill="#000000"><rect x="0" y="0" width="1287" height="150" fill="#FFFFFF"/><path d="M30 0h6v150h-6ZM39 0h3v150h-3ZM48 0h9v150h-9ZM63 0h12v150h-12ZM78 0h3v150h-3ZM84 0h9v150h-9ZM96 0h6v150h-6ZM108 0h6v150h-6ZM117 0h6v150h-6ZM129 0h6v150h-6ZM141 0h3v150h-3ZM150 0h3v150h-3ZM162 0h6v150h-6ZM177 0h3v150h-3ZM183 0h9v150h-9ZM195 0h9v150h-9ZM207 0h12v150h-12ZM222 0h3v150h-3ZM228 0h6v150h-6ZM237 0h6v150h-6ZM249 0h6v150h-6ZM261 0h3v150h-3ZM270 0h6v150h-6ZM279 0h9v150h-9ZM294 0h3v150h-3ZM300 0h6v150h-6ZM315 0h9v150h-9ZM327 0h6v150h-6ZM336 0h9v150h-9ZM354 0h3v150h-3ZM360 0h6v150h-6ZM372 0h3v150h-3ZM384 0h3v150h-3ZM393 0h3v150h-3ZM399 0h12v150h-12ZM414 0h9v150h-9ZM426 0h6v150h-6ZM435 0h9v150h-9ZM453 0h3v150h-3ZM459 0h3v150h-3ZM471 0h6v150h-6ZM480 0h3v150h-3ZM492 0h6v150h-6ZM501 0h9v150h-9ZM513 0h3v150h-3ZM525 0h6v150h-6ZM534 0h9v150h-9ZM552 0h3v150h-3ZM558 0h3v150h-3ZM567 0h9v150h-9ZM582 0h6v150h-6ZM591 0h6v150h-6ZM603 0h9v150h-9ZM618 0h3v150h-3ZM624 0h9v150h-9ZM636 0h3v150h-3ZM645 0h6v150h-6ZM657 0h3v150h-3ZM663 0h3v150h-3ZM675 0h6v150h-6ZM690 0h12v150h-12ZM705 0h3v150h-3ZM711 0h9v150h-9ZM723 0h6v150h-6ZM735 0h9v150h-9ZM750 0h3v150h-3ZM756 0h3v150h-3ZM765 0h9v150h-9ZM780 0h6v150h-6ZM789 0h6v150h-6ZM798 0h9v150h-9ZM810 0h3v150h-3ZM822 0h3v150h-3ZM828 0h9v150h-9ZM846 0h6v150h-6ZM855 0h3v150h-3ZM864 0h9v150h-9ZM879 0h6v150h-6ZM888 0h6v150h-6ZM900 0h9v150h-9ZM915 0h3v150h-3ZM921 0h9v150h-9ZM933 0h3v150h-3ZM942 0h6v150h-6ZM954 0h3v150h-3ZM966 0h3v150h-3ZM972 0h6v150h-6ZM987 0h3v150h-3ZM993 0h9v150h-9ZM1005 0h12v150h-12ZM1020 0h12v150h-12ZM1035 0h3v150h-3ZM1041 0h9v150h-9ZM1053 0h3v150h-3ZM1062 0h9v150h-9ZM1077 0h6v150h-6ZM1086 0h6v150h-6ZM1095 0h6v150h-6ZM1104 0h6v150h-6ZM1119 0h3v150h-3ZM1125 0h6v150h-6ZM1137 0h9v150h-9ZM1152 0h6v150h-6ZM1161 0h6v150h-6ZM1176 0h6v150h-6ZM1185 0h6v150h-6ZM1194 0h9v150h-9ZM1209 0h3v150h-3ZM1218 0h6v150h-6ZM1233 0h9v150h-9ZM1245 0h3v150h-3ZM1251 0h6v150h-6Z"/></g></svg><div style="color:#222; font:11px/1.4 monospace; margin-top:6px; word-break:break-all">② GS1-128（長い）　(01)09506000134352(10)TEST128A(21)SN128B(17)301231</div></div>
+          <div><svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="リーダー確認用 GS1 DataMatrix" style="display:block; width:150px; height:150px"><g id="barcode" fill="#000000"><rect x="0" y="0" width="72" height="72" fill="#FFFFFF"/><path d="M3 3h3v3h-3ZM9 3h3v3h-3ZM15 3h3v3h-3ZM21 3h3v3h-3ZM27 3h3v3h-3ZM33 3h3v3h-3ZM39 3h3v3h-3ZM45 3h3v3h-3ZM51 3h3v3h-3ZM57 3h3v3h-3ZM63 3h3v3h-3ZM3 6h6v3h-6ZM15 6h12v3h-12ZM42 6h3v9h-3ZM54 6h3v3h-3ZM66 6h3v3h-3ZM3 9h3v6h-3ZM15 9h3v3h-3ZM21 9h3v3h-3ZM30 9h6v3h-6ZM48 9h6v6h-6ZM57 9h6v3h-6ZM9 12h21v3h-21ZM36 12h3v3h-3ZM57 12h12v3h-12ZM3 15h9v3h-9ZM15 15h6v3h-6ZM27 15h3v3h-3ZM33 15h21v3h-21ZM63 15h3v3h-3ZM3 18h3v9h-3ZM18 18h6v3h-6ZM30 18h3v3h-3ZM48 18h3v3h-3ZM54 18h6v3h-6ZM66 18h3v3h-3ZM12 21h3v3h-3ZM18 21h3v3h-3ZM33 21h3v3h-3ZM42 21h3v6h-3ZM48 21h9v3h-9ZM60 21h3v3h-3ZM9 24h6v3h-6ZM18 24h6v3h-6ZM27 24h3v3h-3ZM36 24h3v3h-3ZM48 24h21v3h-21ZM3 27h9v3h-9ZM18 27h3v3h-3ZM24 27h9v3h-9ZM45 27h6v3h-6ZM57 27h6v3h-6ZM3 30h6v3h-6ZM12 30h3v3h-3ZM21 30h3v3h-3ZM27 30h6v6h-6ZM42 30h3v3h-3ZM48 30h6v3h-6ZM66 30h3v3h-3ZM3 33h9v9h-9ZM15 33h3v6h-3ZM42 33h6v3h-6ZM51 33h6v3h-6ZM63 33h3v3h-3ZM21 36h6v3h-6ZM36 36h9v3h-9ZM48 36h3v3h-3ZM57 36h3v3h-3ZM66 36h3v3h-3ZM18 39h6v3h-6ZM30 39h3v3h-3ZM36 39h3v3h-3ZM42 39h6v3h-6ZM57 39h9v3h-9ZM3 42h6v6h-6ZM18 42h3v3h-3ZM24 42h6v3h-6ZM36 42h6v3h-6ZM51 42h18v3h-18ZM12 45h9v3h-9ZM30 45h9v3h-9ZM42 45h3v3h-3ZM54 45h3v3h-3ZM60 45h3v6h-3ZM3 48h12v3h-12ZM27 48h12v3h-12ZM66 48h3v3h-3ZM3 51h6v3h-6ZM15 51h3v3h-3ZM21 51h6v3h-6ZM33 51h6v3h-6ZM48 51h6v3h-6ZM57 51h6v3h-6ZM3 54h9v3h-9ZM15 54h6v3h-6ZM24 54h3v3h-3ZM36 54h3v3h-3ZM45 54h12v3h-12ZM60 54h3v3h-3ZM66 54h3v3h-3ZM3 57h6v3h-6ZM12 57h6v3h-6ZM24 57h15v3h-15ZM48 57h3v3h-3ZM54 57h6v3h-6ZM63 57h3v3h-3ZM3 60h3v6h-3ZM18 60h9v3h-9ZM30 60h6v6h-6ZM39 60h3v3h-3ZM45 60h15v3h-15ZM63 60h6v3h-6ZM9 63h3v3h-3ZM18 63h6v3h-6ZM39 63h6v3h-6ZM51 63h3v3h-3ZM63 63h3v3h-3ZM3 66h66v3h-66Z"/></g></svg><div style="color:#222; font:11px/1.4 monospace; margin-top:6px">③ GS1 DataMatrix（二次元）</div></div>
+        </div>
         </div>
         <div id="rdResult" class="stat" style="margin-top:10px; line-height:1.8"></div>
         <button class="btn sm" id="btnRdClear" style="margin-top:6px">確認結果を消す</button>
@@ -272,7 +282,7 @@
 </div>
 
 <script src="master_jan.js"></script>
-<script src="gs1.js"></script>
+<script src="gs1.js?v=2026-11-14.5"></script><!-- gs1.js を直したら ?v= も変える（古い gs1.js がブラウザに残っていると新しい台帳と食い違う） -->
 <script>
 (function () {
   const $ = (s) => document.querySelector(s);
@@ -299,7 +309,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.4";
+  const VERSION = "2026-11-14.5";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -509,22 +519,24 @@
   // ---------- リーダー確認（確認用コードを読み、LOT・シリアルの後ろの区切り GS が届くかを見る。結果はこの端末に保存。台帳には入れない）
   const LSR = "scanLedger.readerCheck";
   let RC = (function () { try { return JSON.parse(localStorage.getItem(LSR)) || {}; } catch (e) { return {}; } })();
-  const rcFail = () => !!((RC.linear && !RC.linear.pass) || (RC.matrix && !RC.matrix.pass));
-  const readerOk = () => !rcFail() && !!(RC.linear || RC.matrix);   // 読んだ確認用コードがすべて通っている
+  const RCK = ["short", "linear", "matrix"];
+  const rcFail = () => RCK.some((k) => RC[k] && !RC[k].pass);
+  const readerOk = () => !rcFail() && RCK.some((k) => RC[k]);   // 読んだ確認用コードがすべて通っている
+  const isShortTest = (p) => !!p.ok && !p.ai["01"] && ((p.ai["10"] === GS1.TEST.short.lot && p.ai["17"] === GS1.TEST.short.exp) || p.ai["10"] === "0017991231");
   function renderReaderCheck() {
     const st = $("#rdStat"), box = $("#rdResult"); if (!st || !box) return;
-    const any = RC.linear || RC.matrix;
+    const any = RCK.some((k) => RC[k]);
     st.textContent = readerOk() ? "✓ 確認済み" : any ? "⚠ 区切りが届いていません" : "未確認"; st.style.color = readerOk() ? "var(--cyan)" : any ? "var(--coral)" : "var(--muted)";
-    const line = (k, o, how) => { const f = GS1.TEST[k]; if (!o) return ""; return "<div>" + esc(how + " " + f.label) + "：" + (o.pass ? '<b style="color:var(--cyan)">✓ LOT・シリアル・期限が分かれて届きました</b>' + (o.subst ? "（区切りは記号に置き換わって届く設定）" : "") : '<b style="color:var(--coral)">✗ 分かれて届きません</b>（区切り GS ' + (o.gs || 0) + " 個／必要 2 個）") + '　<span class="mono" style="opacity:.75">' + esc(o.at ? new Date(o.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" + (o.pass ? "" : '<div class="mono" style="opacity:.75; word-break:break-all">受信: ' + esc(o.got || "") + "</div>") + "</div>"; };
+    const line = (k, o, how) => { const f = GS1.TEST[k]; if (!o) return ""; return "<div>" + esc(how + " " + f.label) + "：" + (o.pass ? '<b style="color:var(--cyan)">✓ LOT・シリアル・期限が分かれて届きました</b>' + (o.subst ? "（区切りは記号に置き換わって届く設定）" : "") : '<b style="color:var(--coral)">✗ 分かれて届きません</b>（区切り GS ' + (o.gs || 0) + " 個／必要 " + (f.gs || 2) + " 個）") + '　<span class="mono" style="opacity:.75">' + esc(o.at ? new Date(o.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" + (o.pass ? "" : '<div class="mono" style="opacity:.75; word-break:break-all">受信: ' + esc(o.got || "") + "</div>") + "</div>"; };
     const cm = RC.cam || {};
-    box.innerHTML = (line("linear", RC.linear, "リーダー") + line("matrix", RC.matrix, "リーダー") + line("linear", cm.linear, "カメラ") + line("matrix", cm.matrix, "カメラ") || "まだ読んでいません。") +
+    box.innerHTML = (line("short", RC.short, "リーダー") + line("short", cm.short, "カメラ") + line("linear", RC.linear, "リーダー") + line("matrix", RC.matrix, "リーダー") + line("linear", cm.linear, "カメラ") + line("matrix", cm.matrix, "カメラ") || "まだ読んでいません。") +
       (any && !readerOk() ? "<div>→ リーダーの設定で、区切り（GS / FNC1）を送る指定にしてください（「GS を Ctrl+] で送る」「制御文字を送る」「Function Key Mapping」など。機種の設定用バーコードで切り替えます）。直るまでは、LOT の後ろに期限などが続く製品で LOT と期限がつながって入ります。</div>" : "") +
       (readerOk() ? '<div style="opacity:.75">この確認用コードでの結果です。全製品のラベルを保証するものではありません。リーダー・設定・端末を変えたら読み直してください。</div>' : "");
   }
   function readerTest(p, text, ev) {
-    const T = GS1.TEST, via = ev.src || "hid", kind = String(p.ai["10"] || "").indexOf("TESTDM") === 0 || p.sym === "]d2" ? "matrix" : "linear", f = T[kind];
+    const T = GS1.TEST, via = ev.src || "hid", kind = isShortTest(p) ? "short" : String(p.ai["10"] || "").indexOf("TESTDM") === 0 || p.sym === "]d2" ? "matrix" : "linear", f = T[kind];
     if (via === "paste" || via === "self") { log("確認用コードは、リーダーかカメラで読んでください（貼り付けは確認になりません）"); return; }
-    const fields = p.ai["10"] === f.lot && p.ai["21"] === f.serial && p.ai["17"] === f.exp, isCam = via !== "hid";
+    const fields = p.ai["10"] === f.lot && (f.serial === undefined || p.ai["21"] === f.serial) && p.ai["17"] === f.exp, isCam = via !== "hid";
     const res = { pass: fields && (isCam || p.form === "raw"), at: now(), gs: p.gsCount || 0, subst: (p.issues || []).some((x) => x.code === "gs_subst"), got: GS1.visible(text).slice(0, 90), ver: VERSION };
     if (isCam) { RC.cam = RC.cam || {}; RC.cam[kind] = res; } else RC[kind] = res;
     try { localStorage.setItem(LSR, JSON.stringify(RC)); } catch (e) {}
@@ -589,7 +601,7 @@
   function addScan0(text, quiet, ev) {
     ev = ev || {};
     const p = GS1.parse(text);
-    if (p.ok && p.ai["01"] === GS1.TEST.gtin) { readerTest(p, text, ev); return null; }   // リーダー確認用コード（製品ではない）
+    if ((p.ok && p.ai["01"] === GS1.TEST.gtin) || isShortTest(p)) { readerTest(p, text, ev); return null; }   // リーダー確認用コード（製品ではない）
     if (looksLikePid(text, p) || !p.ok) {
       const t = p.nonGs1 ? String(p.body).trim() : String(text).trim();   // GS1 でないバーコードは、種類の記号（]C0 など）を外した中身で判定する
       if (!p.ok) { const g = resolveBareProduct(t); if (g) return addScan("(01)" + g, quiet, ev); }   // ただの数字でも製品と分かれば製品として取り込む
@@ -1020,7 +1032,7 @@
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
     const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
     const r = addScan(t, false, { src: "cam" }); const el = $("#camHit");
-    if (!r && GS1.parse(t).ai["01"] === GS1.TEST.gtin) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
+    if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t)))) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
     // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
     const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
     const tail = done ? (cam.autoClose ? "  ✓ 保存 → 台帳に戻ります" : "  ✓ 保存（" + cur.items.length + " 本目。続けて次を読めます）") : "";
@@ -1152,6 +1164,10 @@
   $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x, false, { src: "paste" })); $("#paste").value = ""; };
   $("#btnScanLog").onclick = () => { if (!SLOG.length) { log("読取ログはまだありません"); return; } download("読取ログ_" + today() + ".csv", csv(SLOG.map((x) => [x.at, x.c, VIA[x.via] || x.via, x.raw, x.res, x.msg]), ["時刻", "症例", "経路", "届いた文字列", "結果", "メッセージ"]), "text/csv"); };
   $("#btnRdOpen").onclick = () => { const d = $("#rdBox"); d.open = true; d.scrollIntoView({ behavior: "smooth", block: "center" }); };
+  $("#rdBox").addEventListener("click", (e) => { const z = e.target.getAttribute && e.target.getAttribute("data-rdz"); if (z) { const sv = $("#rdShort"); sv.style.width = (143 * (+z + 1)) + "px"; sv.style.height = (70 + 20 * +z) + "px"; } });
+  $("#btnRdPrint").onclick = () => { const w = window.open("", "_blank"); if (!w) { log("印刷用の画面を開けません（ポップアップを許可してください）"); return; }
+    w.document.write('<!doctype html><meta charset="utf-8"><title>リーダー確認用コード</title><style>body{font-family:sans-serif;margin:24px}.noprint,.btn{display:none!important}#rdShort{width:70mm!important;height:22mm!important}svg{max-width:170mm}</style><h3>Alice Scan リーダー確認用コード</h3><p>使うリーダーで ① を読んでください（台帳の入力欄が選ばれている状態で）。台帳には入りません。</p>' + $("#rdPrintArea").innerHTML);
+    w.document.close(); setTimeout(() => { try { w.focus(); w.print(); } catch (x) {} }, 400); };
   $("#btnRdClear").onclick = () => { RC = {}; try { localStorage.removeItem(LSR); } catch (e) {} renderReaderCheck(); };
   renderReaderCheck();
   $("#btnPendOk").onclick = confirmPending;
