@@ -206,6 +206,8 @@
         </div>
         <div id="rdResult" class="stat" style="margin-top:10px; line-height:1.8"></div>
         <button class="btn sm" id="btnRdClear" style="margin-top:6px">確認結果を消す</button>
+        <button class="btn sm" id="btnTplSave" style="margin-top:6px" title="この端末が覚えた、製品ごとのバーコードの型と LOT の形を書き出します（患者の情報は入りません）">覚えた型を保存</button>
+        <span id="tplStat" class="stat" style="margin-left:6px"></span>
       </details>
       <div id="log"></div>
       <div class="stat" style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap"><span id="diag"></span><button class="btn" id="btnDiag" style="padding:4px 10px; font-size:12px">📋 診断をコピー</button><button class="btn" id="btnScanLog" style="padding:4px 10px; font-size:12px" title="リーダー・カメラから届いた文字列と、その結果の記録（この端末の最新 800 件）。読めなかった原因を調べるときに">🧾 読取ログを保存</button></div>
@@ -309,7 +311,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.6";
+  const VERSION = "2026-11-14.7";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -519,25 +521,41 @@
   // ---------- リーダー確認（確認用コードを読み、LOT・シリアルの後ろの区切り GS が届くかを見る。結果はこの端末に保存。台帳には入れない）
   const LSR = "scanLedger.readerCheck";
   let RC = (function () { try { return JSON.parse(localStorage.getItem(LSR)) || {}; } catch (e) { return {}; } })();
+  const LSP = "scanLedger.sep";
+  let SEP = (function () { try { return JSON.parse(localStorage.getItem(LSP)) || null; } catch (e) { return null; } })();   // { type: "key", token } | { type: "char", ch }
+  const SET82 = /[!"%&'()*+,\-./0-9:;<=>?_A-Za-z]/;   // GS1 のデータに使える文字。これに入る文字は区切りとして覚えない（LOT の中身と区別できないため）
+  function learnSep(kind, trace, text) {
+    const pat = kind === "short" ? /^(?:\][A-Za-z]\d)?1000(.+?)17991231$/ : /^(?:\][A-Za-z]\d)?010950600013435210TEST128A(.+?)21SN128B(.+?)17301231$/;
+    for (const s of [trace, String(text).replace(/[\r\n\t]+$/, "")]) {
+      const m = pat.exec(s || ""); if (!m) continue; const x = m[1]; if (m[2] !== undefined && m[2] !== x) continue;
+      if (/^\{[^{}]+\}$/.test(x)) SEP = { type: "key", token: x };
+      else if (x.length === 1 && !SET82.test(x) && x !== GS1.GS) SEP = { type: "char", ch: x };
+      else continue;
+      try { localStorage.setItem(LSP, JSON.stringify(SEP)); } catch (e) {}
+      return SEP.type === "key" ? "キー " + x.slice(1, -1) : "文字「" + x + "」";
+    }
+    return "";
+  }
   const RCK = ["short", "linear", "matrix"];
   const rcFail = () => RCK.some((k) => RC[k] && !RC[k].pass);
   const readerOk = () => !rcFail() && RCK.some((k) => RC[k]);   // 読んだ確認用コードがすべて通っている
-  const isShortTest = (p) => !!p.ok && !p.ai["01"] && ((p.ai["10"] === GS1.TEST.short.lot && p.ai["17"] === GS1.TEST.short.exp) || p.ai["10"] === "0017991231");
+  const isShortTest = (p, text) => (!!p.ok && !p.ai["01"] && ((p.ai["10"] === GS1.TEST.short.lot && p.ai["17"] === GS1.TEST.short.exp) || p.ai["10"] === "0017991231")) || /^(?:\][A-Za-z]\d)?1000.{0,12}17991231$/.test(String(text || "").replace(/[\r\n\t ]+$/, ""));   // 区切りが記号に置き換わって届いたときも確認用コードと分かるように、文字列でも見る
   function renderReaderCheck() {
     const st = $("#rdStat"), box = $("#rdResult"); if (!st || !box) return;
     const any = RCK.some((k) => RC[k]);
-    st.textContent = readerOk() ? "✓ 確認済み" : any ? "⚠ 区切りが届いていません" : "未確認"; st.style.color = readerOk() ? "var(--cyan)" : any ? "var(--coral)" : "var(--muted)";
-    const line = (k, o, how) => { const f = GS1.TEST[k]; if (!o) return ""; return "<div>" + esc(how + " " + f.label) + "：" + (o.pass ? '<b style="color:var(--cyan)">✓ LOT・シリアル・期限が分かれて届きました</b>' + (o.subst ? "（区切りは記号に置き換わって届く設定）" : "") : '<b style="color:var(--coral)">✗ 分かれて届きません</b>（区切り GS ' + (o.gs || 0) + " 個／必要 " + (f.gs || 2) + " 個）") + '　<span class="mono" style="opacity:.75">' + esc(o.at ? new Date(o.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" + (o.pass ? "" : '<div class="mono" style="opacity:.75; word-break:break-all">受信: ' + esc(o.got || "") + "</div>") + "</div>"; };
+    st.textContent = readerOk() ? "✓ 確認済み" : any ? "⚠ 区切りが届いていません" : "未確認"; { const ts = $("#tplStat"); if (ts) ts.textContent = "覚えた型 " + Object.keys(TPL).length + " 製品" + (SEP ? "／区切り：" + (SEP.type === "key" ? "キー " + SEP.token.slice(1, -1) : "文字「" + SEP.ch + "」") : ""); } st.style.color = readerOk() ? "var(--cyan)" : any ? "var(--coral)" : "var(--muted)";
+    const line = (k, o, how) => { const f = GS1.TEST[k]; if (!o) return ""; return "<div>" + esc(how + " " + f.label) + "：" + (o.pass ? '<b style="color:var(--cyan)">✓ LOT・シリアル・期限が分かれて届きました</b>' + (o.subst ? "（区切りは記号に置き換わって届く設定）" : "") : '<b style="color:var(--coral)">✗ 分かれて届きません</b>（区切り GS ' + (o.gs || 0) + " 個／必要 " + (f.gs || 2) + " 個）") + '　<span class="mono" style="opacity:.75">' + esc(o.at ? new Date(o.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" + (o.learned ? '<div><b style="color:var(--cyan)">→ このリーダーの区切り（' + esc(o.learned) + "）を覚えました。もう一度読んで、✓ になるか確かめてください</b></div>" : o.nothing ? "<div>→ このリーダーは区切りを何も送っていません。製品ごとに覚えた「バーコードの型」で分けます（型のある製品だけ。型はカメラで一度読むか、箱の印字で確定すると覚えます）。</div>" : "") + (o.pass ? "" : '<div class="mono" style="opacity:.75; word-break:break-all">受信: ' + esc(o.got || "") + "</div>") + "</div>"; };
     const cm = RC.cam || {};
     box.innerHTML = (line("short", RC.short, "リーダー") + line("short", cm.short, "カメラ") + line("linear", RC.linear, "リーダー") + line("matrix", RC.matrix, "リーダー") + line("linear", cm.linear, "カメラ") + line("matrix", cm.matrix, "カメラ") || "まだ読んでいません。") +
       (any && !readerOk() ? "<div>→ リーダーの設定で、区切り（GS / FNC1）を送る指定にしてください（「GS を Ctrl+] で送る」「制御文字を送る」「Function Key Mapping」など。機種の設定用バーコードで切り替えます）。設定が無い機種もあります（I-O DATA BR-CCD/TS2 の設定ガイドには見当たりません）。その場合、LOT が最後に来るバーコード（院内ラベルの多く）は正しく入ります。LOT の後ろに期限・シリアルなどが続くバーコードは LOT とつながって入るので、その製品は「📸 写真を撮って読む」か、箱の印字で直してください。</div>" : "") +
       (readerOk() ? '<div style="opacity:.75">この確認用コードでの結果です。全製品のラベルを保証するものではありません。リーダー・設定・端末を変えたら読み直してください。</div>' : "");
   }
   function readerTest(p, text, ev) {
-    const T = GS1.TEST, via = ev.src || "hid", kind = isShortTest(p) ? "short" : String(p.ai["10"] || "").indexOf("TESTDM") === 0 || p.sym === "]d2" ? "matrix" : "linear", f = T[kind];
+    const T = GS1.TEST, via = ev.src || "hid", kind = isShortTest(p, text) ? "short" : String(p.ai["10"] || "").indexOf("TESTDM") === 0 || p.sym === "]d2" ? "matrix" : "linear", f = T[kind];
     if (via === "paste" || via === "self") { log("確認用コードは、リーダーかカメラで読んでください（貼り付けは確認になりません）"); return; }
     const fields = p.ai["10"] === f.lot && (f.serial === undefined || p.ai["21"] === f.serial) && p.ai["17"] === f.exp, isCam = via !== "hid";
     const res = { pass: fields && (isCam || p.form === "raw"), at: now(), gs: p.gsCount || 0, subst: (p.issues || []).some((x) => x.code === "gs_subst"), got: GS1.visible(text).slice(0, 90), ver: VERSION };
+    if (!isCam && !res.pass && kind !== "matrix") { const L = learnSep(kind, ev.trace || "", text); if (L) res.learned = L; else if (kind === "short" && String(text).replace(/[\r\n\t ]+$/, "").replace(/^\][A-Za-z]\d/, "") === "100017991231") res.nothing = true; }
     if (isCam) { RC.cam = RC.cam || {}; RC.cam[kind] = res; } else RC[kind] = res;
     try { localStorage.setItem(LSR, JSON.stringify(RC)); } catch (e) {}
     renderReaderCheck(); const d = $("#rdBox"); if (d) d.open = true;
@@ -597,11 +615,56 @@
     try { if (!quiet) scanFeedback(r, slogMsg, (ev && ev.src) || "hid"); } catch (e) {}
     return r;
   }
+  const LST = "scanLedger.tpl";
+  let TPL = (function () { try { return JSON.parse(localStorage.getItem(LST)) || {}; } catch (e) { return {}; } })();   // GTIN → { seq: ["01","10","17"], len: { "10": 8 }, n, at, varlen }
+  const TPL0 = window.MASTER_TPL || {};   // 配布する型（公開辞書に入れたとき用。今は空）
+  const tplOf = (g) => TPL[g] || TPL0[g] || null;
+  function putTpl(g, seq, len) {
+    const o = TPL[g];
+    if (o && o.seq.join() === seq.join() && Object.keys(len).every((a) => o.len[a] === len[a])) o.n = (o.n || 1) + 1;
+    else if (o && !o.varlen && o.seq.join() === seq.join()) o.varlen = true;   // 同じ並びで桁数が違う読み取りがあった＝桁数が一定でない製品。型では分けない
+    else if (!o || o.varlen) TPL[g] = { seq: seq, len: len, n: 1, at: today() };
+    else TPL[g] = { seq: seq, len: len, n: 1, at: today() };
+    try { localStorage.setItem(LST, JSON.stringify(TPL)); } catch (e) {}
+    try { renderReaderCheck(); } catch (e) {}
+  }
+  function learnTpl(p, ev) {
+    const src = ev.src || "hid", els = p.elements || [];
+    if (!p.ok || p.warn.length || !els.length || els[0].ai !== "01" || !GS1.gtinCheck(p.ai["01"])) return;
+    if (!els.some((e, k) => !e.len && k < els.length - 1)) return;   // 可変長の項目が最後だけなら、区切りが無くても分けられるので型は要らない
+    const sure = (p.form === "hri" && (src === "cam" || src === "photo")) || (p.form === "raw" && p.gsCount > 0 && els.every((e, k) => e.len || k === els.length - 1 || e.end === "gs"));
+    if (!sure) return;
+    const len = {}; els.forEach((e, k) => { if (!e.len && k < els.length - 1) len[e.ai] = e.value.length; });
+    putTpl(p.ai["01"], els.map((e) => e.ai), len);
+  }
+  function applyTpl(p, ev) {
+    if (!p.ok || p.form !== "raw" || p.gsCount || (ev.src || "hid") !== "hid" || !p.elements.length || p.elements[0].ai !== "01") return null;
+    const t = tplOf(p.ai["01"]); if (!t || t.varlen) return null;
+    const body = p.norm || ""; if (!/^[\x21-\x7e]+$/.test(body) || body.indexOf("<") >= 0) return null;
+    const cut = (lens) => {   // 型の並びどおりに、可変長の項目を lens の桁数で切る。合わなければ null
+      let i = 0, out = "";
+      for (let k = 0; k < t.seq.length; k++) {
+        const ai = t.seq[k], sp = GS1.aiSpec(ai); if (!sp || body.substr(i, ai.length) !== ai) return null;
+        i += ai.length; const L = sp.len || (k === t.seq.length - 1 ? body.length - i : lens[ai]); if (!L || L < 1 || i + L > body.length) return null;
+        out += "(" + ai + ")" + body.substr(i, L); i += L;
+      }
+      if (i !== body.length) return null;
+      const p2 = GS1.parse(out); return p2.ok && !p2.warn.length ? p2 : null;
+    };
+    const p2 = cut(t.len); if (p2) { p2.raw = p.raw; return { state: "ok", p: p2 }; }
+    const vars = Object.keys(t.len), alts = [];
+    if (vars.length === 1) { const va = vars[0], vi = t.seq.indexOf(va), mx = (GS1.aiSpec(va) || {}).max || 20;
+      for (let L = 1; L <= mx; L++) { if (L === t.len[va]) continue; const ln = {}; ln[va] = L; const q = cut(ln); if (!q) continue;
+        const ex = {}; q.elements.slice(vi + 1).forEach((e) => { ex[e.ai] = e.value; });
+        alts.push({ ai: va, value: q.ai[va], extra: ex, label: (GS1.NAMES[va] || va) + "=" + q.ai[va] + " / " + q.elements.slice(vi + 1).map((e) => (GS1.NAMES[e.ai] || "AI" + e.ai) + "=" + (/^1[1-7]$/.test(e.ai) ? GS1.dateInfo(e.value).iso : e.value)).join(" / ") }); } }
+    return { state: "bad", alts: alts };
+  }
   // ev: { src: "hid"（リーダー・手入力）| "cam" | "photo" | "paste" | "self", caps: CapsLock オンで届いた }
   function addScan0(text, quiet, ev) {
     ev = ev || {};
-    const p = GS1.parse(text);
-    if ((p.ok && p.ai["01"] === GS1.TEST.gtin) || isShortTest(p)) { readerTest(p, text, ev); return null; }   // リーダー確認用コード（製品ではない）
+    let p = GS1.parse(text); let tplState = "";
+    let tplAlts = null; { const t2 = applyTpl(p, ev); if (t2) { tplState = t2.state; if (t2.p) p = t2.p; tplAlts = t2.alts || null; } }
+    if ((p.ok && p.ai["01"] === GS1.TEST.gtin) || isShortTest(p, text)) { readerTest(p, text, ev); return null; }   // リーダー確認用コード（製品ではない）
     if (looksLikePid(text, p) || !p.ok) {
       const t = p.nonGs1 ? String(p.body).trim() : String(text).trim();   // GS1 でないバーコードは、種類の記号（]C0 など）を外した中身で判定する
       if (!p.ok) { const g = resolveBareProduct(t); if (g) return addScan("(01)" + g, quiet, ev); }   // ただの数字でも製品と分かれば製品として取り込む
@@ -612,6 +675,9 @@
     if (!cur) newCase();
     { const pa = $("#pidAsk"); if (pa) pa.style.display = "none"; }
     const r = GS1.toRecord(p); r.at = now(); r.via = ev.src || "hid"; resolvePack(r);
+    r.seq = (p.elements || []).map((e) => e.ai);
+    if (tplState === "ok") r.byTpl = true; else if (tplState === "bad") { r.warn.push("覚えた型と合わない（LOT の桁数が今までと違う）"); r.q = "check"; if (tplAlts && tplAlts.length) r.alts = tplAlts.slice(0, 4); }
+    learnTpl(p, ev);
     if (ev.caps && /[A-Za-z]/.test(r.lot + r.serial + r.ref)) { r.warn.push("CapsLockオンで受信（英字の大文字・小文字が逆の恐れ）"); r.q = "check"; }
     if (r.noGs && r.via === "hid" && !readerOk()) r.warn.push(rcFail() ? "区切りが届かないリーダー" : "区切り未確認のリーダー");   // GS が 1 つも無い読み取り。LOT が最後なら正常
     if (r.noGs && r.via === "hid" && r.gtin && r.lot && !r.alts.length) {
@@ -816,6 +882,7 @@
     if (r.verified) n.push(["目視確定", "ok"]);
     if (r.merged) n.push(["分割バーコードを統合（箱で確認）", "warn"]);
     if (r.paired) n.push(["写真で隣り合う2本を組に", "ok"]);
+    if (r.byTpl) n.push(["覚えた型で分割（区切りなしのリーダー）", "ok"]);
     if (siteKind(r) && siteMaster() && !hasSite(r)) n.push([validLesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
     if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
     if (r.refResolved) n.push(["REFから特定((01)未読)", "warn"]);
@@ -1042,7 +1109,7 @@
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
     const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
     const r = addScan(t, false, { src: "cam" }); const el = $("#camHit");
-    if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t)))) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
+    if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t), t))) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
     // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
     const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
     const tail = done ? (cam.autoClose ? "  ✓ 保存 → 台帳に戻ります" : "  ✓ 保存（" + cur.items.length + " 本目。続けて次を読めます）") : "";
@@ -1124,16 +1191,21 @@
   const GSCH = GS1.GS;
   let flushT = null, burstStart = 0, burstN = 0, capsSeen = false, altBuf = "", termSeen = false, kN = 0, kT0 = 0, kLast = 0;
   const isGsKey = (e) => e.key === "\u001d" || e.key === "GroupSeparator" || (e.ctrlKey && !e.altKey && !e.metaKey && (e.code === "BracketRight" || e.key === "]"));
+  let ktrace = [];   // 今の読み取りで届いたキーの並び（文字はそのまま、文字にならないキーは {C-KeyX} のような印）。区切りの学習に使う
+  const keyToken = (e) => "{" + (e.ctrlKey ? "C-" : "") + (e.altKey ? "A-" : "") + (e.metaKey ? "M-" : "") + (e.code || e.key) + "}";
+  const isSepKey = (e) => !!(SEP && SEP.type === "key" && !/^(Control|Shift|Alt|Meta|CapsLock|Enter|Tab)/.test(e.key) && (e.ctrlKey || e.altKey || e.metaKey || !e.key || e.key.length !== 1) && keyToken(e) === SEP.token);
   const fastBurst = () => kN >= 6 && (kLast - kT0) / kN < 50;   // 1 文字 50ms 未満が 6 文字以上＝リーダー（人の手入力ではない）
   function submitScan(v) {
-    const fast = fastBurst(), ev = { src: "hid", caps: capsSeen && fast }; capsSeen = false; kN = 0; burstN = 0;
+    const fast = fastBurst(), ev = { src: "hid", caps: capsSeen && fast, trace: ktrace.join("") }; ktrace = []; capsSeen = false; kN = 0; burstN = 0;
+    if (SEP && SEP.type === "char") v = String(v).split(SEP.ch).join(GSCH);   // 覚えた区切りの文字を GS に戻す
     if (String(v).replace(/\u001d/g, "").trim()) addScan(v, false, ev);
   }
   document.addEventListener("keydown", (e) => {
     if (camOpen()) return;
     const ae = document.activeElement, inScan = ae === scanEl;
     if (!inScan && (!RECV || isField(ae))) return;   // 別の入力欄は尊重。#scan にいるときは常時受付オフでも GS だけは拾う
-    if (isGsKey(e)) { e.preventDefault(); scanEl.value += GSCH; if (!inScan) { try { scanEl.focus(); } catch (x) {} } return; }
+    if (!/^(Control|Shift|Alt|Meta|CapsLock|Enter|Tab|Process|Unidentified)$/.test(e.key || "")) { if (Date.now() - kLast > 1500) ktrace = []; ktrace.push(e.key && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey ? e.key : keyToken(e)); if (ktrace.length > 400) ktrace.shift(); }
+    if (isGsKey(e) || isSepKey(e)) { e.preventDefault(); scanEl.value += GSCH; if (!inScan) { try { scanEl.focus(); } catch (x) {} } return; }
     if (e.altKey && /^Numpad\d$/.test(e.code || "")) { altBuf += e.code.slice(6); return; }   // Alt+テンキーで文字コードを送るリーダー
     if (e.key && e.key.length === 1) {
       const t = Date.now(); if (t - kLast > 1500) { kN = 0; kT0 = t; capsSeen = false; } kN++; kLast = t;
@@ -1178,7 +1250,8 @@
   $("#btnRdPrint").onclick = () => { const w = window.open("", "_blank"); if (!w) { log("印刷用の画面を開けません（ポップアップを許可してください）"); return; }
     w.document.write('<!doctype html><meta charset="utf-8"><title>リーダー確認用コード</title><style>body{font-family:sans-serif;margin:24px}.noprint,.btn{display:none!important}#rdShort{width:70mm!important;height:22mm!important}svg{max-width:170mm}</style><h3>Alice Scan リーダー確認用コード</h3><p>使うリーダーで ① を読んでください（台帳の入力欄が選ばれている状態で）。台帳には入りません。</p>' + $("#rdPrintArea").innerHTML);
     w.document.close(); setTimeout(() => { try { w.focus(); w.print(); } catch (x) {} }, 400); };
-  $("#btnRdClear").onclick = () => { RC = {}; try { localStorage.removeItem(LSR); } catch (e) {} renderReaderCheck(); };
+  $("#btnTplSave").onclick = () => download("AliceScan_覚えた型_" + today() + ".json", JSON.stringify({ made: now(), version: VERSION, tpl: TPL, lotShape: SHP, sep: SEP }, null, 1), "application/json");
+  $("#btnRdClear").onclick = () => { RC = {}; SEP = null; try { localStorage.removeItem(LSP); } catch (e) {} try { localStorage.removeItem(LSR); } catch (e) {} renderReaderCheck(); };
   renderReaderCheck();
   $("#btnPendOk").onclick = confirmPending;
   $("#lesionBox").addEventListener("click", onLesionClick);
@@ -1192,6 +1265,7 @@
     const al = t.getAttribute("data-alt");
     if (al != null && cur) { const r = cur.items[+al]; const a = r.alts && r.alts[+t.getAttribute("data-k")]; if (!a) return;
       if (!confirm("箱の印字と照らしましたか？" + NL + NL + a.label.replace(/ \/ /g, NL) + NL + NL + "箱の印字がこの内容なら OK を押してください。")) return;
+      { const xk = Object.keys(a.extra || {}); if (r.gtin && GS1.gtinCheck(r.gtin) && r.seq && r.seq[0] === "01" && r.seq[r.seq.length - 1] === a.ai && xk.length === 1) { const ln = {}; ln[a.ai] = a.value.length; putTpl(r.gtin, r.seq.concat(xk), ln); } }
       GS1.applyAlt(r, a); delete r.alts; r.q = "ok"; r.verified = { at: now(), how: "候補を採用" };
       r.warn = (r.warn || []).filter((w) => !/抜けの疑い/.test(w)); r.warn.push("区切り抜けを箱の印字で補正");
       save(); render(); log("箱の印字で確定: LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—")); return; }
