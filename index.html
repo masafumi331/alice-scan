@@ -309,7 +309,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.5";
+  const VERSION = "2026-11-14.6";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -530,7 +530,7 @@
     const line = (k, o, how) => { const f = GS1.TEST[k]; if (!o) return ""; return "<div>" + esc(how + " " + f.label) + "：" + (o.pass ? '<b style="color:var(--cyan)">✓ LOT・シリアル・期限が分かれて届きました</b>' + (o.subst ? "（区切りは記号に置き換わって届く設定）" : "") : '<b style="color:var(--coral)">✗ 分かれて届きません</b>（区切り GS ' + (o.gs || 0) + " 個／必要 " + (f.gs || 2) + " 個）") + '　<span class="mono" style="opacity:.75">' + esc(o.at ? new Date(o.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" + (o.pass ? "" : '<div class="mono" style="opacity:.75; word-break:break-all">受信: ' + esc(o.got || "") + "</div>") + "</div>"; };
     const cm = RC.cam || {};
     box.innerHTML = (line("short", RC.short, "リーダー") + line("short", cm.short, "カメラ") + line("linear", RC.linear, "リーダー") + line("matrix", RC.matrix, "リーダー") + line("linear", cm.linear, "カメラ") + line("matrix", cm.matrix, "カメラ") || "まだ読んでいません。") +
-      (any && !readerOk() ? "<div>→ リーダーの設定で、区切り（GS / FNC1）を送る指定にしてください（「GS を Ctrl+] で送る」「制御文字を送る」「Function Key Mapping」など。機種の設定用バーコードで切り替えます）。直るまでは、LOT の後ろに期限などが続く製品で LOT と期限がつながって入ります。</div>" : "") +
+      (any && !readerOk() ? "<div>→ リーダーの設定で、区切り（GS / FNC1）を送る指定にしてください（「GS を Ctrl+] で送る」「制御文字を送る」「Function Key Mapping」など。機種の設定用バーコードで切り替えます）。設定が無い機種もあります（I-O DATA BR-CCD/TS2 の設定ガイドには見当たりません）。その場合、LOT が最後に来るバーコード（院内ラベルの多く）は正しく入ります。LOT の後ろに期限・シリアルなどが続くバーコードは LOT とつながって入るので、その製品は「📸 写真を撮って読む」か、箱の印字で直してください。</div>" : "") +
       (readerOk() ? '<div style="opacity:.75">この確認用コードでの結果です。全製品のラベルを保証するものではありません。リーダー・設定・端末を変えたら読み直してください。</div>' : "");
   }
   function readerTest(p, text, ev) {
@@ -613,7 +613,17 @@
     { const pa = $("#pidAsk"); if (pa) pa.style.display = "none"; }
     const r = GS1.toRecord(p); r.at = now(); r.via = ev.src || "hid"; resolvePack(r);
     if (ev.caps && /[A-Za-z]/.test(r.lot + r.serial + r.ref)) { r.warn.push("CapsLockオンで受信（英字の大文字・小文字が逆の恐れ）"); r.q = "check"; }
-    if (r.noGs && r.via === "hid" && !readerOk()) r.warn.push("区切り未確認のリーダー");   // GS が 1 つも無い読み取り。LOT が最後なら正常だが、リーダー確認が済むまでは印を付ける
+    if (r.noGs && r.via === "hid" && !readerOk()) r.warn.push(rcFail() ? "区切りが届かないリーダー" : "区切り未確認のリーダー");   // GS が 1 つも無い読み取り。LOT が最後なら正常
+    if (r.noGs && r.via === "hid" && r.gtin && r.lot && !r.alts.length) {
+      const ks = knownShapes(r.jan);
+      if (ks.size && !ks.has(shapeOf(r.lot))) for (let k = 2; k <= r.lot.length - 3; k++) {
+        const head = r.lot.slice(0, k); if (!ks.has(shapeOf(head))) continue;
+        const tp = GS1.parse(r.lot.slice(k)); if (!tp.ok || tp.warn.length || !/^(21|240|241|30|11|9\d)$/.test(tp.elements[0].ai) || tp.elements.some((e) => p.ai[e.ai] !== undefined)) continue;
+        const ex = {}; tp.elements.forEach((e) => { ex[e.ai] = e.value; });
+        r.alts.push({ ai: "10", value: head, extra: ex, label: "LOT=" + head + " / " + tp.elements.map((e) => (GS1.NAMES[e.ai] || "AI" + e.ai) + "=" + e.value).join(" / ") });
+      }
+      if (r.alts.length) { r.warn.push("GS(区切り)抜けの疑い：LOT の後ろに別の項目がつながっている（このメーカーの LOT の形より長い）"); r.q = "check"; }
+    }
     if (!r.alts.length) delete r.alts;
     const items = cur.items; const last = items[items.length - 1];
     const within = (a) => a && (Date.now() - new Date(a.at).getTime()) / 1000 <= MERGE_SEC;
@@ -665,7 +675,7 @@
       return dup;
     }
     const m = lookup(r.jan); r.master = m ? "○" : "×"; if (m) applyMaster(r, m);
-    if (r.lot && r.q === "ok" && r.via !== "self" && r.via !== "paste") learnShape(r);   // 1 本のバーコードに GTIN と LOT が入っている＝持ち主が確かな LOT
+    if (r.lot && r.q === "ok" && r.via !== "self" && r.via !== "paste" && (!r.noGs || readerOk())) learnShape(r);   // 区切りが届くか分からないリーダーの読み取りからは覚えない（つながった LOT を正しい形として覚えてしまうため）   // 1 本のバーコードに GTIN と LOT が入っている＝持ち主が確かな LOT
     items.push(r); save(); render(true);
     if (!quiet) log((m ? m.name + " " + (m.size || "") : "マスター未登録 JAN " + r.jan) + "  LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—"));
     return r;
