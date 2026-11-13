@@ -185,6 +185,15 @@
         <textarea id="paste" placeholder="1行1バーコード。括弧付き HRI でも生文字列でも可"></textarea>
         <button class="btn sm" id="btnPaste" style="margin-top:8px">取り込む</button>
       </details>
+      <details style="margin-top:8px" id="rdBox"><summary>リーダーの確認（LOT・期限の区切りが届くか）<span id="rdStat" style="margin-left:8px; font-size:12px"></span></summary>
+        <div class="stat" style="margin-top:8px; line-height:1.7">下の確認用コードを、使うリーダーでそのまま読んでください（別の画面に映すか、印刷して）。台帳には入りません。LOT とシリアルの後ろにある区切り（GS）が届いているかを判定し、結果をこの端末に残します。一次元しか読めないリーダーは左だけで構いません。</div>
+        <div style="background:#fff; padding:16px; border-radius:10px; margin-top:10px; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end">
+          <div style="flex:1 1 340px; min-width:260px"><svg viewBox="0 0 1287 150" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="リーダー確認用 GS1-128" style="display:block; width:100%; max-width:560px; height:auto"><g id="barcode" fill="#000000"><rect x="0" y="0" width="1287" height="150" fill="#FFFFFF"/><path d="M30 0h6v150h-6ZM39 0h3v150h-3ZM48 0h9v150h-9ZM63 0h12v150h-12ZM78 0h3v150h-3ZM84 0h9v150h-9ZM96 0h6v150h-6ZM108 0h6v150h-6ZM117 0h6v150h-6ZM129 0h6v150h-6ZM141 0h3v150h-3ZM150 0h3v150h-3ZM162 0h6v150h-6ZM177 0h3v150h-3ZM183 0h9v150h-9ZM195 0h9v150h-9ZM207 0h12v150h-12ZM222 0h3v150h-3ZM228 0h6v150h-6ZM237 0h6v150h-6ZM249 0h6v150h-6ZM261 0h3v150h-3ZM270 0h6v150h-6ZM279 0h9v150h-9ZM294 0h3v150h-3ZM300 0h6v150h-6ZM315 0h9v150h-9ZM327 0h6v150h-6ZM336 0h9v150h-9ZM354 0h3v150h-3ZM360 0h6v150h-6ZM372 0h3v150h-3ZM384 0h3v150h-3ZM393 0h3v150h-3ZM399 0h12v150h-12ZM414 0h9v150h-9ZM426 0h6v150h-6ZM435 0h9v150h-9ZM453 0h3v150h-3ZM459 0h3v150h-3ZM471 0h6v150h-6ZM480 0h3v150h-3ZM492 0h6v150h-6ZM501 0h9v150h-9ZM513 0h3v150h-3ZM525 0h6v150h-6ZM534 0h9v150h-9ZM552 0h3v150h-3ZM558 0h3v150h-3ZM567 0h9v150h-9ZM582 0h6v150h-6ZM591 0h6v150h-6ZM603 0h9v150h-9ZM618 0h3v150h-3ZM624 0h9v150h-9ZM636 0h3v150h-3ZM645 0h6v150h-6ZM657 0h3v150h-3ZM663 0h3v150h-3ZM675 0h6v150h-6ZM690 0h12v150h-12ZM705 0h3v150h-3ZM711 0h9v150h-9ZM723 0h6v150h-6ZM735 0h9v150h-9ZM750 0h3v150h-3ZM756 0h3v150h-3ZM765 0h9v150h-9ZM780 0h6v150h-6ZM789 0h6v150h-6ZM798 0h9v150h-9ZM810 0h3v150h-3ZM822 0h3v150h-3ZM828 0h9v150h-9ZM846 0h6v150h-6ZM855 0h3v150h-3ZM864 0h9v150h-9ZM879 0h6v150h-6ZM888 0h6v150h-6ZM900 0h9v150h-9ZM915 0h3v150h-3ZM921 0h9v150h-9ZM933 0h3v150h-3ZM942 0h6v150h-6ZM954 0h3v150h-3ZM966 0h3v150h-3ZM972 0h6v150h-6ZM987 0h3v150h-3ZM993 0h9v150h-9ZM1005 0h12v150h-12ZM1020 0h12v150h-12ZM1035 0h3v150h-3ZM1041 0h9v150h-9ZM1053 0h3v150h-3ZM1062 0h9v150h-9ZM1077 0h6v150h-6ZM1086 0h6v150h-6ZM1095 0h6v150h-6ZM1104 0h6v150h-6ZM1119 0h3v150h-3ZM1125 0h6v150h-6ZM1137 0h9v150h-9ZM1152 0h6v150h-6ZM1161 0h6v150h-6ZM1176 0h6v150h-6ZM1185 0h6v150h-6ZM1194 0h9v150h-9ZM1209 0h3v150h-3ZM1218 0h6v150h-6ZM1233 0h9v150h-9ZM1245 0h3v150h-3ZM1251 0h6v150h-6Z"/></g></svg><div style="color:#222; font:11px/1.4 monospace; margin-top:6px; word-break:break-all">GS1-128　(01)09506000134352(10)TEST128A(21)SN128B(17)301231</div></div>
+          <div><svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" role="img" aria-label="リーダー確認用 GS1 DataMatrix" style="display:block; width:150px; height:150px"><g id="barcode" fill="#000000"><rect x="0" y="0" width="72" height="72" fill="#FFFFFF"/><path d="M3 3h3v3h-3ZM9 3h3v3h-3ZM15 3h3v3h-3ZM21 3h3v3h-3ZM27 3h3v3h-3ZM33 3h3v3h-3ZM39 3h3v3h-3ZM45 3h3v3h-3ZM51 3h3v3h-3ZM57 3h3v3h-3ZM63 3h3v3h-3ZM3 6h6v3h-6ZM15 6h12v3h-12ZM42 6h3v9h-3ZM54 6h3v3h-3ZM66 6h3v3h-3ZM3 9h3v6h-3ZM15 9h3v3h-3ZM21 9h3v3h-3ZM30 9h6v3h-6ZM48 9h6v6h-6ZM57 9h6v3h-6ZM9 12h21v3h-21ZM36 12h3v3h-3ZM57 12h12v3h-12ZM3 15h9v3h-9ZM15 15h6v3h-6ZM27 15h3v3h-3ZM33 15h21v3h-21ZM63 15h3v3h-3ZM3 18h3v9h-3ZM18 18h6v3h-6ZM30 18h3v3h-3ZM48 18h3v3h-3ZM54 18h6v3h-6ZM66 18h3v3h-3ZM12 21h3v3h-3ZM18 21h3v3h-3ZM33 21h3v3h-3ZM42 21h3v6h-3ZM48 21h9v3h-9ZM60 21h3v3h-3ZM9 24h6v3h-6ZM18 24h6v3h-6ZM27 24h3v3h-3ZM36 24h3v3h-3ZM48 24h21v3h-21ZM3 27h9v3h-9ZM18 27h3v3h-3ZM24 27h9v3h-9ZM45 27h6v3h-6ZM57 27h6v3h-6ZM3 30h6v3h-6ZM12 30h3v3h-3ZM21 30h3v3h-3ZM27 30h6v6h-6ZM42 30h3v3h-3ZM48 30h6v3h-6ZM66 30h3v3h-3ZM3 33h9v9h-9ZM15 33h3v6h-3ZM42 33h6v3h-6ZM51 33h6v3h-6ZM63 33h3v3h-3ZM21 36h6v3h-6ZM36 36h9v3h-9ZM48 36h3v3h-3ZM57 36h3v3h-3ZM66 36h3v3h-3ZM18 39h6v3h-6ZM30 39h3v3h-3ZM36 39h3v3h-3ZM42 39h6v3h-6ZM57 39h9v3h-9ZM3 42h6v6h-6ZM18 42h3v3h-3ZM24 42h6v3h-6ZM36 42h6v3h-6ZM51 42h18v3h-18ZM12 45h9v3h-9ZM30 45h9v3h-9ZM42 45h3v3h-3ZM54 45h3v3h-3ZM60 45h3v6h-3ZM3 48h12v3h-12ZM27 48h12v3h-12ZM66 48h3v3h-3ZM3 51h6v3h-6ZM15 51h3v3h-3ZM21 51h6v3h-6ZM33 51h6v3h-6ZM48 51h6v3h-6ZM57 51h6v3h-6ZM3 54h9v3h-9ZM15 54h6v3h-6ZM24 54h3v3h-3ZM36 54h3v3h-3ZM45 54h12v3h-12ZM60 54h3v3h-3ZM66 54h3v3h-3ZM3 57h6v3h-6ZM12 57h6v3h-6ZM24 57h15v3h-15ZM48 57h3v3h-3ZM54 57h6v3h-6ZM63 57h3v3h-3ZM3 60h3v6h-3ZM18 60h9v3h-9ZM30 60h6v6h-6ZM39 60h3v3h-3ZM45 60h15v3h-15ZM63 60h6v3h-6ZM9 63h3v3h-3ZM18 63h6v3h-6ZM39 63h6v3h-6ZM51 63h3v3h-3ZM63 63h3v3h-3ZM3 66h66v3h-66Z"/></g></svg><div style="color:#222; font:11px/1.4 monospace; margin-top:6px">GS1 DataMatrix</div></div>
+        </div>
+        <div id="rdResult" class="stat" style="margin-top:10px; line-height:1.8"></div>
+        <button class="btn sm" id="btnRdClear" style="margin-top:6px">確認結果を消す</button>
+      </details>
       <div id="log"></div>
       <div class="stat" style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap"><span id="diag"></span><button class="btn" id="btnDiag" style="padding:4px 10px; font-size:12px">📋 診断をコピー</button></div>
     </div>
@@ -287,7 +296,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-08.18";
+  const VERSION = "2026-11-13.1";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -494,21 +503,57 @@
     if ((d.length === 13 || d.length === 14) && GS1.gtinCheck(g14)) return g14;     // 患者ID の取り違え防止のため、桁無指定の照合は 13/14 桁に限る
     return null;
   }
-  function addScan(text, quiet) {
+  // ---------- リーダー確認（確認用コードを読み、LOT・シリアルの後ろの区切り GS が届くかを見る。結果はこの端末に保存。台帳には入れない）
+  const LSR = "scanLedger.readerCheck";
+  let RC = (function () { try { return JSON.parse(localStorage.getItem(LSR)) || {}; } catch (e) { return {}; } })();
+  const rcFail = () => !!((RC.linear && !RC.linear.pass) || (RC.matrix && !RC.matrix.pass));
+  const readerOk = () => !rcFail() && !!(RC.linear || RC.matrix);   // 読んだ確認用コードがすべて通っている
+  function renderReaderCheck() {
+    const st = $("#rdStat"), box = $("#rdResult"); if (!st || !box) return;
+    const any = RC.linear || RC.matrix;
+    st.textContent = readerOk() ? "✓ 確認済み" : any ? "⚠ 区切りが届いていません" : "未確認"; st.style.color = readerOk() ? "var(--cyan)" : any ? "var(--coral)" : "var(--muted)";
+    const line = (k, o, how) => { const f = GS1.TEST[k]; if (!o) return ""; return "<div>" + esc(how + " " + f.label) + "：" + (o.pass ? '<b style="color:var(--cyan)">✓ LOT・シリアル・期限が分かれて届きました</b>' + (o.subst ? "（区切りは記号に置き換わって届く設定）" : "") : '<b style="color:var(--coral)">✗ 分かれて届きません</b>（区切り GS ' + (o.gs || 0) + " 個／必要 2 個）") + '　<span class="mono" style="opacity:.75">' + esc(o.at ? new Date(o.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "") + "</span>" + (o.pass ? "" : '<div class="mono" style="opacity:.75; word-break:break-all">受信: ' + esc(o.got || "") + "</div>") + "</div>"; };
+    const cm = RC.cam || {};
+    box.innerHTML = (line("linear", RC.linear, "リーダー") + line("matrix", RC.matrix, "リーダー") + line("linear", cm.linear, "カメラ") + line("matrix", cm.matrix, "カメラ") || "まだ読んでいません。") +
+      (any && !readerOk() ? "<div>→ リーダーの設定で、区切り（GS / FNC1）を送る指定にしてください（「GS を Ctrl+] で送る」「制御文字を送る」「Function Key Mapping」など。機種の設定用バーコードで切り替えます）。直るまでは、LOT の後ろに期限などが続く製品で LOT と期限がつながって入ります。</div>" : "") +
+      (readerOk() ? '<div style="opacity:.75">この確認用コードでの結果です。全製品のラベルを保証するものではありません。リーダー・設定・端末を変えたら読み直してください。</div>' : "");
+  }
+  function readerTest(p, text, ev) {
+    const T = GS1.TEST, via = ev.src || "hid", kind = String(p.ai["10"] || "").indexOf("TESTDM") === 0 || p.sym === "]d2" ? "matrix" : "linear", f = T[kind];
+    if (via === "paste" || via === "self") { log("確認用コードは、リーダーかカメラで読んでください（貼り付けは確認になりません）"); return; }
+    const fields = p.ai["10"] === f.lot && p.ai["21"] === f.serial && p.ai["17"] === f.exp, isCam = via !== "hid";
+    const res = { pass: fields && (isCam || p.form === "raw"), at: now(), gs: p.gsCount || 0, subst: (p.issues || []).some((x) => x.code === "gs_subst"), got: GS1.visible(text).slice(0, 90), ver: VERSION };
+    if (isCam) { RC.cam = RC.cam || {}; RC.cam[kind] = res; } else RC[kind] = res;
+    try { localStorage.setItem(LSR, JSON.stringify(RC)); } catch (e) {}
+    renderReaderCheck(); const d = $("#rdBox"); if (d) d.open = true;
+    log("リーダー確認（" + f.label + (isCam ? "・カメラ" : "") + "）: " + (res.pass ? "✓ LOT・シリアル・期限が分かれて届きました" : "✗ 区切り（GS）が届いていません → 「リーダーの確認」を見てください"));
+  }
+  // ev: { src: "hid"（リーダー・手入力）| "cam" | "photo" | "paste" | "self", caps: CapsLock オンで届いた }
+  function addScan(text, quiet, ev) {
+    ev = ev || {};
     const p = GS1.parse(text);
+    if (p.ok && p.ai["01"] === GS1.TEST.gtin) { readerTest(p, text, ev); return null; }   // リーダー確認用コード（製品ではない）
     if (looksLikePid(text, p) || !p.ok) {
-      const t = String(text).trim();
-      if (!p.ok) { const g = resolveBareProduct(t); if (g) return addScan("(01)" + g, quiet); }   // ただの数字でも製品と分かれば製品として取り込む
+      const t = p.nonGs1 ? String(p.body).trim() : String(text).trim();   // GS1 でないバーコードは、種類の記号（]C0 など）を外した中身で判定する
+      if (!p.ok) { const g = resolveBareProduct(t); if (g) return addScan("(01)" + g, quiet, ev); }   // ただの数字でも製品と分かれば製品として取り込む
+      if (!p.ok && /[A-Za-z]/.test(t) && /^[!-~]{4,30}$/.test(t) && !/[()]/.test(t) && byRef(t)) return addScan("(240)" + t, quiet, ev);   // 型番だけのバーコード（LOT・期限は入っていない）
       if (PID_RE.test(t)) { setPid(t); return null; }
-      log("解釈できません: " + text); return null;
+      log("解釈できません: " + GS1.visible(text)); return null;
     }
     if (!cur) newCase();
-    const r = GS1.toRecord(p); r.at = now(); resolvePack(r);
+    const r = GS1.toRecord(p); r.at = now(); r.via = ev.src || "hid"; resolvePack(r);
+    if (ev.caps && /[A-Za-z]/.test(r.lot + r.serial + r.ref)) { r.warn.push("CapsLockオンで受信（英字の大文字・小文字が逆の恐れ）"); r.q = "check"; }
+    if (r.noGs && r.via === "hid" && !readerOk()) r.warn.push("区切り未確認のリーダー");   // GS が 1 つも無い読み取り。LOT が最後なら正常だが、リーダー確認が済むまでは印を付ける
+    if (!r.alts.length) delete r.alts;
     const items = cur.items; const last = items[items.length - 1];
     const within = (a) => a && (Date.now() - new Date(a.at).getTime()) / 1000 <= MERGE_SEC;
+    // 別のバーコードの内容を行に足したとき、その読み取りの注意・要確認・候補も一緒に持っていく。byTime＝時刻が近いというだけで足した（同じ箱かは人が確かめる）
+    const carry = (dst, tookLot, byTime) => { if (byTime) dst.merged = true; dst.warn = dst.warn || []; (r.warn || []).forEach((w) => { if (!dst.warn.includes(w)) dst.warn.push(w); }); if (r.q === "check") dst.q = "check"; if (tookLot && r.alts) dst.alts = r.alts; };
+    const refOther = (() => { if (!r.ref || !last || !last.jan) return false; const j = byRef(r.ref); return !!(j && j !== last.jan); })();   // その型番が別の製品のものなら、直前の行には足さない
     if (!r.gtin) {
       if (within(last) && ((r.lot && last.lot === r.lot) || (r.ref && last.ref === r.ref) || (r.serial && last.serial === r.serial))) { if (!quiet) log("同じ内容の再読み取り（無視）: " + text); return last; }
-      if (within(last) && ((r.lot && !last.lot) || (r.ref && !last.ref) || (r.serial && !last.serial) || (r.expiry && !last.expiry))) {
+      if (within(last) && !refOther && ((r.lot && !last.lot) || (r.ref && !last.ref) || (r.serial && !last.serial) || (r.expiry && !last.expiry))) {
+        carry(last, !!(r.lot && !last.lot), true);
         if (r.lot && !last.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
         last.raw += " | " + text; save(); render(); if (!quiet) log("直前の行に補完: " + text); return last;
       }
@@ -526,7 +571,8 @@
     }
     // 直前が「製品バーコード待ち」の行なら、その行に GTIN を入れて完成させる
     if (last && !last.gtin && within(last)) {
-      last.gtin = r.gtin; last.jan = r.jan; last.packLevel = r.packLevel; last.packQty = r.packQty; last.pending = false;
+      last.gtin = r.gtin; last.jan = r.jan; last.packLevel = r.packLevel; last.packQty = r.packQty; last.pending = false; last.gtinValid = r.gtinValid;
+      carry(last, !!(r.lot && !last.lot), true);
       if (r.lot && !last.lot) last.lot = r.lot; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; } if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial;
       const m2 = lookup(last.jan); last.master = m2 ? "○" : "×"; if (m2) applyMaster(last, m2);
       last.raw += " | " + text; save(); render(true);
@@ -536,6 +582,7 @@
     const dup = [...items].reverse().find((x) => x.gtin === r.gtin && within(x) && (!x.lot || !r.lot || x.lot === r.lot));
     if (dup) {
       let changed = false;
+      if ((r.lot && !dup.lot) || (r.expiry && !dup.expiry)) carry(dup, !!(r.lot && !dup.lot), false);
       if (r.lot && !dup.lot) { dup.lot = r.lot; changed = true; } if (r.expiry && !dup.expiry) { dup.expiry = r.expiry; dup.expiryRaw = r.expiryRaw; changed = true; } if (r.ref && !dup.ref) { dup.ref = r.ref; changed = true; } if (r.serial && !dup.serial) { dup.serial = r.serial; changed = true; }
       if (dup.refResolved) { dup.refResolved = false; dup.gtin = r.gtin; dup.packLevel = r.packLevel; dup.packQty = r.packQty; changed = true; }
       if (changed) { dup.raw += " | " + text; save(); render(); if (!quiet) log("同じ製品の分割バーコードを統合: " + r.gtin); } else if (!quiet) log("同じ製品の再読み取り（無視）: " + r.gtin);
@@ -666,6 +713,8 @@
   const NL = String.fromCharCode(10);
   function exportGate(cases) {
     if (!siteGate(cases)) return false;
+    const rq = cases.flatMap((c) => c.items.filter((r) => r.q === "check").map((r) => caseKey(c) + "　" + (r.name || r.jan || r.gtin || "（製品不明）") + "　LOT " + (r.lot || "—") + "　期限 " + (r.expiry || "—")));
+    if (rq.length && !confirm("読み取りが要確認の行があります（区切り抜けの疑い・実在しない日付など）。箱の印字と照らして「箱と同じ → 確定」を押すか、手で直してから保存することを勧めます。" + NL + NL + rq.slice(0, 12).join(NL) + (rq.length > 12 ? NL + "…ほか " + (rq.length - 12) + " 行" : "") + NL + NL + "このまま保存しますか？")) return false;
     const noProc = cases.filter((c) => c.proc === "自動").map(caseKey);
     if (noProc.length && !confirm("手技が未判定の症例があります（読み取ったデバイスから決められませんでした）。上の「手技」で選んでから保存することを勧めます。" + NL + NL + noProc.join(NL) + NL + NL + "このまま保存しますか？")) return false;
     const noId = cases.filter((c) => !c.pid).map(caseKey);
@@ -676,6 +725,9 @@
 
   function notes(r) {
     const n = [];
+    if (r.q === "check") n.push(["読取要確認（箱の印字と照合）", "bad"]);
+    if (r.verified) n.push(["目視確定", "ok"]);
+    if (r.merged) n.push(["分割バーコードを統合（箱で確認）", "warn"]);
     if (siteKind(r) && siteMaster() && !hasSite(r)) n.push([validLesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
     if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
     if (r.refResolved) n.push(["REFから特定((01)未読)", "warn"]);
@@ -710,7 +762,10 @@
         '<td class="mono">' + esc(r.jan) + '</td><td class="mono">' + esc(r.ijicode) + "</td>" +
         '<td class="mono">' + esc(r.serial) + '</td><td class="mono">' + esc(r.ref) + '</td><td class="mono">' + esc(r.gtin) + "</td><td>" + (r.master === "○" ? tag("一致", "ok") : (!r.gtin ? tag("GTIN待ち", "warn") : tag("未登録", "bad"))) + "</td>" +
         '<td class="chk">' + (r.jan ? '<a class="lk" href="' + pmdaUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA の添付文書を開く">PMDA</a>' + (r.master !== "○" ? '<a class="lk" href="' + webUrl(r.jan) + '" target="_blank" rel="noopener" title="PMDA に無いときの予備">ネット検索</a>' : "") + '<button class="lk' + (CONF[r.jan] ? " done" : "") + '" data-conf="' + i + '">' + (CONF[r.jan] ? "✓済" : "✓確認") + "</button>" : "") + "</td><td>" +
-        notes(r).map((x) => tag(x[0], x[1])).join("") + '</td><td><button class="x" data-del="' + i + '">×</button></td>';
+        notes(r).map((x) => tag(x[0], x[1])).join("") +
+        (r.alts ? r.alts.map((a, k) => '<button class="lk" data-alt="' + i + '" data-k="' + k + '" title="箱の印字がこの内容なら押す">候補にする：' + esc(a.label) + "</button>").join("") : "") +
+        (r.q === "check" ? '<button class="lk" data-okq="' + i + '" title="箱の印字と照らして、この行の LOT・使用期限が正しいとき">箱と同じ → 確定</button>' : "") +
+        '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
       if (siteKind(r) && siteMaster()) tr.classList.add("siterow");
       tb.appendChild(tr);
@@ -719,15 +774,18 @@
     const nc = cur.items.filter((r) => r.kubun === "償還不可").length, sum = cur.items.reduce((a, r) => a + (r.kubun === "償還可" ? (r.price || 0) : 0), 0);
     const nChk = cur.items.filter((r) => needsCheck(r) && !CONF[r.jan] && r.src !== "外部確認").length;
     const noSite = siteMaster() ? cur.items.filter((r) => siteKind(r) && !hasSite(r)).length : 0;
-    $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件　償還合計 <b>¥" + sum.toLocaleString() + "</b>" + (nc ? "　償還不可 <b>" + nc + "</b>" : "") + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "") + (nChk ? "　要確認 <b>" + nChk + "</b>" : "") + (noSite ? "　部位未選択 <b>" + noSite + "</b>" : "");
+    const nRd = cur.items.filter((r) => r.q === "check").length;
+    $("#tableStat").innerHTML = "<b>" + cur.items.length + "</b> 件　償還合計 <b>¥" + sum.toLocaleString() + "</b>" + (nc ? "　償還不可 <b>" + nc + "</b>" : "") + (nRd ? '　<span style="color:var(--coral)">読取要確認 <b>' + nRd + "</b></span>" : "") + (noLot ? "　LOT なし <b>" + noLot + "</b>" : "") + (noM ? "　未登録 <b>" + noM + "</b>" : "") + (nChk ? "　要確認 <b>" + nChk + "</b>" : "") + (noSite ? "　部位未選択 <b>" + noSite + "</b>" : "");
     showMasterStat();
   }
 
-  const COLS = ["症例キー", "手技日", "患者ID", "手技", "治療対象", "部位種別", "治療部位", "読取時刻", "GTIN", "JAN", "医事コード", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "償還区分", "特定保険医療材料名", "償還価格", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "入数", "マスター照合", "マスター出典", "分類", "販売状況", "外部確認", "注意", "原文字列", "PMDA添付文書"];
+  const COLS = ["症例キー", "手技日", "患者ID", "手技", "治療対象", "部位種別", "治療部位", "読取時刻", "GTIN", "JAN", "医事コード", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "償還区分", "特定保険医療材料名", "償還価格", "LOT", "使用期限", "使用期限_原文", "シリアル", "REF", "梱包単位", "入数", "マスター照合", "マスター出典", "分類", "販売状況", "外部確認", "注意", "原文字列", "PMDA添付文書", "読取判定", "読取経路"];
+  const VIA = { hid: "リーダー", cam: "カメラ", photo: "写真", paste: "貼り付け", self: "自己テスト" };
+  const readQ = (r) => r.q === "check" ? "要確認" : r.verified ? "目視確定（" + r.verified.how + "）" : r.q === "ok" ? "検査通過" : "";
   // 事務（医事課）向け: 請求に要る列だけ、1行1個
   const JCOLS = ["手技日", "患者ID", "手技", "治療部位", "医事コード", "償還区分", "特定保険医療材料名（機能区分）", "償還価格", "数量", "メーカー", "品名", "サイズ", "形状", "型番", "品番", "JAN", "LOT", "使用期限", "備考"];
   function jrows(c) { return c.items.map((r) => [c.date, idLabel(c), c.proc, siteLabel(r, c), r.ijicode || "", r.master === "○" ? r.kubun : "マスター未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", 1, mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.jan, r.lot, r.expiry, notes(r).map((x) => x[0]).join(";")]); }
-  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, idLabel(c), c.proc, validLesions(c).map(lesionLabel).join("; "), siteKind(r), siteLabel(r, c), r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), String(r.raw).replace(/\u001d/g, "<GS>"), r.jan ? pmdaUrl(r.jan) : ""]); }
+  function rows(c) { return c.items.map((r) => [caseKey(c), c.date, idLabel(c), c.proc, validLesions(c).map(lesionLabel).join("; "), siteKind(r), siteLabel(r, c), r.at, r.gtin, r.jan, r.ijicode || "", mkr(r), r.name || "", r.size || "", r.shape || "", r.model || "", r.hinban || "", r.master === "○" ? r.kubun : "未登録", r.hoken || "", r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "", r.lot, r.expiry, r.expiryRaw, r.serial, r.ref, r.packLevel, r.packQty || "", r.master, r.master === "○" ? (r.src || "院内") + (r.kikiFill ? "+KikiDB" : "") : "", r.cat || "", r.status || "", CONF[r.jan] ? CONF[r.jan].by + " " + CONF[r.jan].at.slice(0, 10) : "", notes(r).map((x) => x[0]).join(";"), GS1.visible(r.raw), r.jan ? pmdaUrl(r.jan) : "", readQ(r), VIA[r.via] || ""]); }
   function mkr(r) { return r.maker || (r.master !== "○" && guessMaker(r.jan) ? "（推定）" + guessMaker(r.jan) : ""); }
   function csv(rs, cols) { const q = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; return "﻿" + [cols || COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
@@ -837,7 +895,7 @@
       const rs = await mod.readBarcodes(f, { formats: ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"], tryHarder: true, maxNumberOfSymbols: 8 });
       if (!rs.length) { log("写真からバーコードを見つけられません。バーコードを大きく・ピントを合わせて撮り直してください"); return; }
       const seen = new Set();
-      for (const r of rs) { if (seen.has(r.text)) continue; seen.add(r.text); addScan(r.text); }
+      for (const r of rs) { if (seen.has(r.text)) continue; seen.add(r.text); addScan(r.text, false, { src: "photo" }); }
       beep();
     } catch (err) { log("写真の解読に失敗: " + (err && err.message || err)); }
   });
@@ -859,11 +917,12 @@
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
     const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
-    const r = addScan(t); const el = $("#camHit");
+    const r = addScan(t, false, { src: "cam" }); const el = $("#camHit");
+    if (!r && GS1.parse(t).ai["01"] === GS1.TEST.gtin) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
     // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
     const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
     const tail = done ? (cam.autoClose ? "  ✓ 保存 → 台帳に戻ります" : "  ✓ 保存（" + cur.items.length + " 本目。続けて次を読めます）") : "";
-    el.textContent = !r ? "読めましたが解釈できません: " + String(t).slice(0, 40) : (!r.gtin ? "LOT/REF を読みました → 同じ製品の (01) 付きバーコードも読んでください" : (r.refResolved ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + "（REF から特定。(01) 付きも読むと期限が入ります）" : (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + tail));
+    el.textContent = !r ? "読めましたが解釈できません: " + String(t).slice(0, 40) : (!r.gtin ? "LOT/REF を読みました → 同じ製品の (01) 付きバーコードも読んでください" : (r.refResolved ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + "（REF から特定。(01) 付きも読むと期限が入ります）" : (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + (r.q === "check" ? "  ⚠ 要確認（箱の印字と照合）" : "") + tail));
     el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); if (navigator.vibrate) navigator.vibrate(60); beep();
     if (done && cam.autoClose && !cam.closeT) { clearInterval(cam.timer); cam.timer = null; cam.closeT = setTimeout(() => { cam.closeT = null; closeCam(); log("読めたので台帳に戻りました（続けて読むときは「📷 カメラで読む」）"); }, 1500); } }
   function closeCam() { clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
@@ -935,30 +994,52 @@
     try { scanEl.focus(); } catch (e) {}
   }
   // 物理キーが入力欄の外に来たら #scan に流す（最初の 1 文字も取りこぼさない）。物理キーが来た時だけ動くので端末を問わず安全
+  // 区切り GS(0x1D) の受け取り: リーダーは GS を「Ctrl+]」として送る（機種により Alt+029）。文字ではないので入力欄には入らず、
+  // そのままだと LOT と次の項目（期限・シリアル）がつながって 1 つの LOT になる。ここで拾って GS として入力に入れる。
+  // US 配列のリーダーは「]」の位置のキー（code=BracketRight）、日本語配列のリーダーは「]」の文字（key="]"）で届くので両方を見る
+  const GSCH = GS1.GS;
+  let flushT = null, burstStart = 0, burstN = 0, capsSeen = false, altBuf = "", termSeen = false, kN = 0, kT0 = 0, kLast = 0;
+  const isGsKey = (e) => e.key === "\u001d" || e.key === "GroupSeparator" || (e.ctrlKey && !e.altKey && !e.metaKey && (e.code === "BracketRight" || e.key === "]"));
+  const fastBurst = () => kN >= 6 && (kLast - kT0) / kN < 50;   // 1 文字 50ms 未満が 6 文字以上＝リーダー（人の手入力ではない）
+  function submitScan(v) {
+    const fast = fastBurst(), ev = { src: "hid", caps: capsSeen && fast }; capsSeen = false; kN = 0; burstN = 0;
+    if (String(v).replace(/\u001d/g, "").trim()) addScan(v, false, ev);
+  }
   document.addEventListener("keydown", (e) => {
-    if (!RECV || camOpen()) return;
+    if (camOpen()) return;
+    const ae = document.activeElement, inScan = ae === scanEl;
+    if (!inScan && (!RECV || isField(ae))) return;   // 別の入力欄は尊重。#scan にいるときは常時受付オフでも GS だけは拾う
+    if (isGsKey(e)) { e.preventDefault(); scanEl.value += GSCH; if (!inScan) { try { scanEl.focus(); } catch (x) {} } return; }
+    if (e.altKey && /^Numpad\d$/.test(e.code || "")) { altBuf += e.code.slice(6); return; }   // Alt+テンキーで文字コードを送るリーダー
+    if (e.key && e.key.length === 1) {
+      const t = Date.now(); if (t - kLast > 1500) { kN = 0; kT0 = t; capsSeen = false; } kN++; kLast = t;
+      if (/[A-Za-z]/.test(e.key) && e.getModifierState && e.getModifierState("CapsLock")) capsSeen = true;
+    }
+    if (e.key === "Enter" || e.key === "Tab") { if (fastBurst()) termSeen = true; if (inScan) return; const v = scanEl.value; scanEl.value = ""; submitScan(v); e.preventDefault(); return; }
+    if (inScan) return;                              // #scan は自前の処理へ
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    const ae = document.activeElement;
-    if (ae === scanEl || isField(ae)) return;   // 既に入力欄にいる（#scan は自前の処理へ、別欄は尊重）
-    if (e.key === "Enter" || e.key === "Tab") { const v = scanEl.value; scanEl.value = ""; if (v.trim()) addScan(v); e.preventDefault(); return; }
     if (e.key && e.key.length === 1) { scanEl.value += e.key; e.preventDefault(); try { scanEl.focus(); } catch (x) {} }
+  }, true);
+  document.addEventListener("keyup", (e) => {
+    if (e.key !== "Alt" || !altBuf) return; const b = altBuf; altBuf = "";
+    if (/^0*29$/.test(b)) setTimeout(() => { if (!/[\u001d↔]$/.test(scanEl.value)) scanEl.value += GSCH; }, 0);   // Alt+029 ＝ GS（OS が ↔ を入れたときは解析側で GS に戻す）
   }, true);
 
   // 確定: Enter / Tab、CR/LF 混入、さらに「終端文字を送らないスキャナー」向けに無操作で自動確定（速い連打＝スキャナーの時だけ）
-  let flushT = null, burstStart = 0, burstN = 0;
-  scanEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const v = e.target.value; e.target.value = ""; burstN = 0; if (v.trim()) addScan(v); } });
+  scanEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const v = e.target.value; e.target.value = ""; submitScan(v); } });
   scanEl.addEventListener("input", (e) => {
     const v = e.target.value;
-    if (/[\r\n]/.test(v)) { e.target.value = ""; burstN = 0; v.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); return; }
+    if (/[\r\n]/.test(v)) { e.target.value = ""; const ev = { src: "hid", caps: capsSeen && fastBurst() }; capsSeen = false; kN = 0; burstN = 0; v.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x, false, ev)); return; }
     const t = Date.now();
     if (burstN === 0 || t - burstStart > 1500) { burstStart = t; burstN = 0; }
     burstN++;
     clearTimeout(flushT);
+    // Enter / Tab を送るリーダーだと分かったら、無操作での自動確定は長めに待つ（Bluetooth の途切れで 1 本が 2 つに割れ、LOT が途中で切れるのを防ぐ）
     flushT = setTimeout(() => {
       const s = scanEl.value.trim(); if (!s) return;
       const elapsed = Date.now() - burstStart, cps = elapsed > 0 ? (burstN / elapsed) * 1000 : 999;
-      if (burstN >= 6 && cps >= 20) { scanEl.value = ""; burstN = 0; addScan(s); }   // 人の手入力（~5文字/秒）では発火しない
-    }, 160);
+      if (burstN >= 6 && cps >= 20) { scanEl.value = ""; submitScan(s); }   // 人の手入力（~5文字/秒）では発火しない
+    }, termSeen ? 1200 : 160);
   });
 
   const rc = $("#recvChk"); if (rc) rc.onchange = (e) => { RECV = e.target.checked; try { localStorage.setItem("scanLedger.recv", RECV ? "1" : "0"); } catch (x) {} updateRecvUI(); keepFocus(); };
@@ -966,7 +1047,9 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) keepFocus(); });
   document.addEventListener("click", (e) => { const el = e.target; if (!isField(el) && !(el.closest && el.closest("button,a,select,summary,label,input,textarea"))) keepFocus(); });
   updateRecvUI(); keepFocus();
-  $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x)); $("#paste").value = ""; };
+  $("#btnPaste").onclick = () => { $("#paste").value.split(/[\r\n]+/).forEach((x) => x.trim() && addScan(x, false, { src: "paste" })); $("#paste").value = ""; };
+  $("#btnRdClear").onclick = () => { RC = {}; try { localStorage.removeItem(LSR); } catch (e) {} renderReaderCheck(); };
+  renderReaderCheck();
   $("#btnPendOk").onclick = confirmPending;
   $("#lesionBox").addEventListener("click", onLesionClick);
   $("#lesionBox").addEventListener("change", onLesionInput);
@@ -975,6 +1058,17 @@
   $("#tbl").addEventListener("click", async (e) => {
     const t = e.target; const d = t.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); return; }
     const st = t.getAttribute("data-sitetog"); if (st != null && cur) { const r = cur.items[+st]; const id = t.getAttribute("data-lid"); const ids = siteIds(r); const j = ids.indexOf(id); if (j >= 0) ids.splice(j, 1); else ids.push(id); r.siteAuto = false; save(); render(); return; }
+    // 読取要確認の行: 候補（区切り抜けを補った分け方）を選ぶ／箱の印字と同じなら確定する。どちらも人が箱を見て決める
+    const al = t.getAttribute("data-alt");
+    if (al != null && cur) { const r = cur.items[+al]; const a = r.alts && r.alts[+t.getAttribute("data-k")]; if (!a) return;
+      if (!confirm("箱の印字と照らしましたか？" + NL + NL + a.label.replace(/ \/ /g, NL) + NL + NL + "箱の印字がこの内容なら OK を押してください。")) return;
+      GS1.applyAlt(r, a); delete r.alts; r.q = "ok"; r.verified = { at: now(), how: "候補を採用" };
+      r.warn = (r.warn || []).filter((w) => !/抜けの疑い/.test(w)); r.warn.push("区切り抜けを箱の印字で補正");
+      save(); render(); log("箱の印字で確定: LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—")); return; }
+    const oq = t.getAttribute("data-okq");
+    if (oq != null && cur) { const r = cur.items[+oq];
+      if (!confirm("箱の印字と照らしましたか？" + NL + NL + "LOT: " + (r.lot || "（なし）") + NL + "使用期限: " + (r.expiry || "（なし）") + (r.serial ? NL + "シリアル: " + r.serial : "") + NL + NL + "箱の印字と同じなら OK を押してください（違うときはキャンセルして、LOT・使用期限のセルを直してください）。")) return;
+      r.q = "ok"; delete r.alts; r.verified = { at: now(), how: "目視" }; save(); render(); return; }
     const cf = t.getAttribute("data-conf");
     if (cf != null && cur) { const r = cur.items[+cf];
       if (CONF[r.jan]) { if (confirm("JAN " + r.jan + " の外部確認（" + CONF[r.jan].by + "）を取り消しますか？")) { delete CONF[r.jan]; saveConf(); render(); } return; }
@@ -993,7 +1087,10 @@
     catch (err) { alert("院内辞書を読み込めませんでした: " + err.message); } };
   $("#btnKikiDel").onclick = async () => { if (!confirm("この端末に保存した院内辞書を消しますか？（読み取り済みの台帳は消えません）")) return; try { await idbDo("readwrite", (st) => st.delete(IDB.key)); } catch (e) {} K = null; REFIDX = null; showMasterStat(); log("院内辞書を消しました（再読み込みで反映）"); };
   $("#btnConfCsv").onclick = () => download("外部確認済み_" + today() + ".csv", csv(Object.keys(CONF).sort().map((j) => { const c = CONF[j]; return [jan13(j), c.maker, c.name, c.size, c.model, c.hinban, c.by, c.at]; }), ["JAN", "メーカー", "品名", "サイズ", "型番", "品番", "確認先", "確認日時"]), "text/csv");
-  $("#tbl").addEventListener("blur", (e) => { const f = e.target.getAttribute && e.target.getAttribute("data-f"); if (f && cur) { const r = cur.items[+e.target.getAttribute("data-i")]; const v = e.target.textContent.trim(); if (r[f] !== v) { r[f] = v; (r.warn = r.warn || []).includes("手入力") || r.warn.push("手入力"); save(); render(); } } }, true);
+  $("#tbl").addEventListener("blur", (e) => { const f = e.target.getAttribute && e.target.getAttribute("data-f"); if (f && cur) { const r = cur.items[+e.target.getAttribute("data-i")]; const v = e.target.textContent.trim(); if (r[f] !== v) { r[f] = v; (r.warn = r.warn || []).includes("手入力") || r.warn.push("手入力");
+      // 手で直した使用期限は YYYY-MM-DD の実在する日付だけ通す（2/31 などはそのまま残して要確認にする）
+      if (f === "expiry") { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v); const okDate = !v || (m && GS1.dateInfo(m[1].slice(2) + m[2] + m[3]).ok); r.warn = r.warn.filter((w) => w !== "使用期限の書式が不正"); if (!okDate) { r.warn.push("使用期限の書式が不正"); r.q = "check"; } }
+      save(); render(); } } }, true);
   $("#btnCsv").onclick = () => cur && exportGate([cur]) && download(fileBase(cur) + ".csv", csv(rows(cur)), "text/csv");
   $("#btnJimu").onclick = () => cur && exportGate([cur]) && download("事務_" + fileBase(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
   $("#btnJimuAll").onclick = () => exportGate(Object.values(db.cases)) && download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
@@ -1022,7 +1119,7 @@
     const d = today(); let removed = 0; for (const k of Object.keys(db.cases)) { const c = db.cases[k]; if (c.date === d && c.pid === set.pid) { delete db.cases[k]; removed++; } }
     if (removed) { cur = null; log("前の自己テスト症例（" + set.pid + "）を消して作り直します"); }
     $("#cDate").value = d; $("#cPid").value = set.pid; $("#cProc").value = "自動"; newCase();
-    set.codes.forEach((x) => addScan(x, true));
+    set.codes.forEach((x) => addScan(x, true, { src: "self" }));
     log("自己テスト " + name + ": " + set.codes.length + " 本流しました → 症例 " + caseKey(cur) + "（手技の判定: " + cur.proc + "）");
   }
   $("#btnSelfTest").onclick = () => { const v = $("#selfSet").value; if (v === "all") Object.keys(SELF).forEach(runSelfTest); else runSelfTest(v); };
