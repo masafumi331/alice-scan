@@ -314,7 +314,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.10";
+  const VERSION = "2026-11-14.11";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -635,6 +635,7 @@
   }
   function learnTpl(p, ev) {
     const src = ev.src || "hid", els = p.elements || [];
+    if (ev.ocr) return;   // 文字から読んだものでは型を覚えない
     if (!p.ok || p.warn.length || !els.length || els[0].ai !== "01" || !GS1.gtinCheck(p.ai["01"])) return;
     if (!els.some((e, k) => !e.len && k < els.length - 1)) return;   // 可変長の項目が最後だけなら、区切りが無くても分けられるので型は要らない
     const sure = (p.form === "hri" && (src === "cam" || src === "photo")) || (p.form === "raw" && p.gsCount > 0 && els.every((e, k) => e.len || k === els.length - 1 || e.end === "gs"));
@@ -684,6 +685,8 @@
     { const pa = $("#pidAsk"); if (pa) pa.style.display = "none"; }
     const r = GS1.toRecord(p); r.at = now(); r.via = ev.src || "hid"; resolvePack(r);
     r.seq = (p.elements || []).map((e) => e.ai);
+    if (ev.amb) { r.warn.push("写真の読み取りが、読むたびに違う内容になった（バーコードがつぶれている恐れ）"); r.q = "check"; }
+    if (ev.ocr) { r.ocr = true; r.q = "check"; r.warn.push(ev.twice ? "印字の文字から読んだ（バーコードは読めず。LOT は印字 2 か所で同じ読み）" : "印字の文字から読んだ（バーコードは読めず。読み違いがありうる）"); }
     if (tplState === "ok") r.byTpl = true; else if (tplState === "bad") { r.warn.push("覚えた型と合わない（LOT の桁数が今までと違う）"); r.q = "check"; if (tplAlts && tplAlts.length) r.alts = tplAlts.slice(0, 4); }
     learnTpl(p, ev);
     if (ev.caps && /[A-Za-z]/.test(r.lot + r.serial + r.ref)) { r.warn.push("CapsLockオンで受信（英字の大文字・小文字が逆の恐れ）"); r.q = "check"; }
@@ -1063,30 +1066,31 @@
       const P = r.position || {}, q = [P.topLeft, P.topRight, P.bottomRight, P.bottomLeft];
       const geo = q.every((p) => p && isFinite(p.x) && isFinite(p.y));
       const p = GS1.parse(r.text), a = p.ok ? p.ai : {};
-      items.push({ text: r.text, p, geo, cx: geo ? (q[0].x + q[1].x + q[2].x + q[3].x) / 4 : 0, cy: geo ? (q[0].y + q[1].y + q[2].y + q[3].y) / 4 : 0,
-        hh: geo ? Math.min(D(q[0], q[3]), D(q[0], q[1])) : 0,   // バーの高さ（短い辺。写真が横向きでも同じ）
+      items.push({ text: r.text, ocr: !!r.ocr, twice: !!r.twice, amb: !!r.amb, p, geo, cx: geo ? (q[0].x + q[1].x + q[2].x + q[3].x) / 4 : 0, cy: geo ? (q[0].y + q[1].y + q[2].y + q[3].y) / 4 : 0,
+        ww: geo ? Math.max(D(q[0], q[1]), D(q[0], q[3])) : 0,   // バーコードの横幅（長い辺）。一次元バーコードの位置は読み取った線 1 本ぶんで返り、高さは当てにならない
         kind: a["01"] ? (a["10"] || a["21"] ? "full" : "gtin") : (a["10"] || a["21"] || a["17"] ? "lone" : "other") });
     }
-    // 近い順に、まだ組になっていない「製品だけ」と「LOT だけ」を結ぶ。離れすぎ（バーの高さの 3.2 倍より遠い＝別のラベル）は結ばない
+    // 近い順に、まだ組になっていない「製品だけ」と「LOT だけ」を結ぶ。同じラベルの上下 2 本は中心どうしが横幅の 0.2〜0.3 倍。横幅の 0.6 倍より遠いもの（＝隣や次の段のラベル）は結ばない
     const cand = [];
-    for (const g of items) if (g.kind === "gtin" && g.geo) for (const l of items) if (l.kind === "lone" && l.geo) { const d = D({ x: g.cx, y: g.cy }, { x: l.cx, y: l.cy }); if (d <= 3.2 * Math.max(g.hh, l.hh)) cand.push({ g, l, d }); }
+    for (const g of items) if (g.kind === "gtin" && g.geo) for (const l of items) if (l.kind === "lone" && l.geo) { const d = D({ x: g.cx, y: g.cy }, { x: l.cx, y: l.cy }); if (d <= 0.6 * Math.max(g.ww, l.ww)) cand.push({ g, l, d }); }
     cand.sort((x, y) => x.d - y.d);
     for (const c of cand) { if (c.g.mate || c.l.mate) continue; c.g.mate = c.l; c.l.mate = c.g; }
     const hri = (p) => p.elements.map((e) => "(" + e.ai + ")" + e.value).join("");
-    let nProd = 0, nPair = 0; const orphan = [];
+    let nProd = 0, nPair = 0, nOcr = 0, nSkip = 0; const orphan = [];
     items.sort((x, y) => (x.cy - y.cy) || (x.cx - y.cx));
     for (const it of items) {
       if (it.kind === "lone") { if (!it.mate) orphan.push(it); continue; }
+      if (it.kind === "other" && (it.p.ok || !/^\d{8,14}$/.test(it.text.trim()))) { nSkip++; continue; }
       if (it.kind === "gtin" && it.mate) {
-        const r = addScan(hri(it.p) + hri(it.mate.p), false, { src: "photo" });   // 2 本を 1 つの読み取りとして入れる（順番や時刻に頼らない）
+        const r = addScan(hri(it.p) + hri(it.mate.p), false, { src: "photo", amb: it.amb || it.mate.amb });   // 2 本を 1 つの読み取りとして入れる（順番や時刻に頼らない）
         if (r) { r.paired = true; r.raw = it.text + " | " + it.mate.text; nProd++; nPair++; }
-      } else { const r = addScan(it.text, false, { src: "photo" }); if (r && r.gtin) nProd++; }
+      } else { const r = addScan(it.text, false, { src: "photo", ocr: it.ocr, twice: it.twice, amb: it.amb }); if (r && r.gtin) { nProd++; if (it.ocr) nOcr++; } }
     }
     // 持ち主が写っていない LOT は、どの製品にも足さない（次に読んだ製品へ勝手に付くのを防ぐ）
     if (orphan.length) log("持ち主の製品バーコードが写っていない LOT／シリアル: " + orphan.map((o) => o.p.ai["10"] || o.p.ai["21"] || o.text).join("、") + "（台帳には入れていません。製品のバーコードも入るように撮り直してください）");
     save(); render();
-    const msg = "写真から " + items.length + " 本：製品 " + nProd + " 件" + (nPair ? "（隣り合う 2 本を組にした " + nPair + " 件）" : "") + (orphan.length ? "、持ち主不明の LOT " + orphan.length + " 本" : "");
-    log(msg); const el = $("#scanMsg"); if (el) { el.textContent = msg; el.style.display = "block"; el.style.borderColor = orphan.length ? "var(--gold)" : "var(--cyan)"; el.style.borderLeftWidth = "6px"; }
+    const msg = "写真から " + (items.length - nSkip) + " 本：製品 " + nProd + " 件" + (nPair ? "（隣り合う 2 本を組にした " + nPair + " 件）" : "") + (nOcr ? "（うち " + nOcr + " 件はバーコードが読めず印字の文字から。必ず箱の印字と見比べて確定してください）" : "") + (orphan.length ? "、持ち主不明の LOT " + orphan.length + " 本" : "");
+    log(msg); const el = $("#scanMsg"); if (el) { el.textContent = msg; el.style.display = "block"; el.style.borderColor = orphan.length || nOcr ? "var(--gold)" : "var(--cyan)"; el.style.borderLeftWidth = "6px"; }
     return { items: items.length, products: nProd, pairs: nPair, orphans: orphan.length };
   }
   // 写真の結果は入力欄の下に大きく出す（スマホでは記録欄が画面の外にあり、「反応しない」ように見えていた）
@@ -1096,8 +1100,8 @@
   async function decodePhoto(file, mod) {
     const opts = { formats: ["Code128", "DataMatrix", "QRCode", "EAN-13", "Code39", "ITF", "EAN-8", "Codabar"], tryHarder: true, maxNumberOfSymbols: 60 };
     const found = new Map();
-    const add = (rs, sc, ox, oy) => { for (const r of rs) { if (!r || !r.text || found.has(r.text)) continue; const P = r.position, m = (p) => (p ? { x: p.x / sc + ox, y: p.y / sc + oy } : null);
-      found.set(r.text, { text: r.text, position: P ? { topLeft: m(P.topLeft), topRight: m(P.topRight), bottomRight: m(P.bottomRight), bottomLeft: m(P.bottomLeft) } : null }); } };
+    const add = (rs, sc, ox, oy) => { for (const r of rs) { if (!r || !r.text) continue; if (found.has(r.text)) { found.get(r.text).n++; continue; } const P = r.position, m = (p) => (p ? { x: p.x / sc + ox, y: p.y / sc + oy } : null);
+      found.set(r.text, { text: r.text, n: 1, position: P ? { topLeft: m(P.topLeft), topRight: m(P.topRight), bottomRight: m(P.bottomRight), bottomLeft: m(P.bottomLeft) } : null }); } };
     let bmp = null; try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); } catch (x) { try { bmp = await createImageBitmap(file); } catch (y) {} }
     if (!bmp) { add(await mod.readBarcodes(file, opts), 1, 0, 0); return [...found.values()]; }   // 画像として開けない形式は、そのまま渡して読む
     const W = bmp.width, H = bmp.height, big = Math.max(W, H), cv = document.createElement("canvas"), g = cv.getContext("2d", { willReadFrequently: true });
@@ -1113,14 +1117,54 @@
       for (let iy = 0; iy < n; iy++) for (let ix = 0; ix < n; ix++) { if (!left()) return; await pass((W - tw) * ix / (n - 1), (H - th) * iy / (n - 1), tw, th, sc); } };
     if (big > 2000) { await tiles(2, 1); await tiles(3, 2); }
     try { bmp.close(); } catch (x) {}
-    return [...found.values()];
+    // つぶれたバーコードは、読むたびに違う内容で「読めた」ことになる場合がある（実物で (21)PED027800 が (90)=ED02)80z と読まれた）。
+    // 同じ場所（中心が横幅の 0.15 倍以内）の読み取りは 1 本のバーコードとみなし、読めた回数の多いものだけ残す。
+    // 上下に並んだ 2 本（製品＋期限と LOT）は中心が横幅の 0.2〜0.3 倍離れているので別物。念のため「製品コードあり」と「製品コードなし」の組は同じバーコードとみなさない
+    const all = [...found.values()], ctr = (o) => { const P = o.position; return P && P.topLeft && P.bottomRight ? { x: (P.topLeft.x + P.bottomRight.x) / 2, y: (P.topLeft.y + P.bottomRight.y) / 2, w: Math.hypot(P.topLeft.x - P.topRight.x, P.topLeft.y - P.topRight.y) } : null; };
+    const keep = [];
+    const qual = (o) => { const p = GS1.parse(o.text); return p.ok && !p.warn.length && (p.ai["01"] || p.ai["10"] || p.ai["21"] || p.ai["17"]) ? 1 : 0; };   // 同じ回数なら、きちんと読める内容のほうを残す
+    for (const o of all.sort((a, b) => (b.n - a.n) || (qual(b) - qual(a)))) { const c = ctr(o); const same = c ? keep.find((k) => { const d = ctr(k); return d && Math.hypot(c.x - d.x, c.y - d.y) < 0.15 * Math.max(c.w, d.w) && /\(01\)|^01\d{14}/.test(k.text) === /\(01\)|^01\d{14}/.test(o.text); }) : null;
+      if (!same) keep.push(o); else if (same.n === o.n && qual(o) >= qual(same)) same.amb = true; }   // 回数も内容の確かさも同じで決められないときだけ印を付ける
+    return keep;
+  }
+  // 印字の文字を読む（tesseract.js）。バーコードの線がつぶれて読めないラベルでも、下の文字ははっきりしていることが多い。
+  // ただし文字の読み取りは 5↔8・9↔0・G↔6 などを間違えることがある。製品コードは検査数字で、期限は日付として確かめられるが、LOT は確かめようがない。
+  // だから、文字から読んだ行は必ず「読取要確認」にして、人が箱の印字と見比べて確定する（自動では確定しない）
+  async function ocrHri(file) {
+    if (!cam.ocrText) {
+      if (!window.Tesseract) await new Promise((ok, ng) => { const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"; s.onload = ok; s.onerror = ng; document.head.appendChild(s); });
+      const w = await Tesseract.createWorker("eng"); await w.setParameters({ tessedit_pageseg_mode: "6" }); cam.ocrText = w;
+    }
+    let bmp = null; try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); } catch (x) { bmp = await createImageBitmap(file); }
+    const big = Math.max(bmp.width, bmp.height), sc = Math.min(1, 3000 / big), cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * sc); cv.height = Math.round(bmp.height * sc);
+    const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(bmp, 0, 0, cv.width, cv.height); try { bmp.close(); } catch (x) {}
+    const res = await cam.ocrText.recognize(cv), lines = (res.data && res.data.lines) || [], all = lines.map((l) => l.text.replace(/\s+/g, "")).join("\n");
+    const num = (s) => s.replace(/[Oo]/g, "0").replace(/[Il|]/g, "1").replace(/S/g, "5").replace(/B/g, "8").replace(/Z/g, "2");   // 数字だけの項目で、数字と間違えやすい英字を戻す
+    const out = [], seen = new Set();
+    for (const l of lines) {
+      const t = l.text.replace(/\s+/g, "").replace(/[（［\[{]/g, "(").replace(/[）］\]}]/g, ")");
+      const m = /\(01\)[0-9OoIlSBZ|]{14}(?:\(\d{2,3}\)[^()]{1,30})*/.exec(t); if (!m) continue;
+      let hri = ""; const re = /\((\d{2,3})\)([^()]*)/g; let k;
+      while ((k = re.exec(m[0]))) { const sp = GS1.aiSpec(k[1]); if (!sp) { hri = ""; break; } hri += "(" + k[1] + ")" + (sp.len ? num(k[2]) : k[2]); }
+      if (!hri) continue;
+      const p = GS1.parse(hri); if (!p.ok || p.warn.length || !GS1.gtinCheck(p.ai["01"] || "") || seen.has(hri)) continue;   // 製品コードの検査数字・日付が合わない読みは捨てる
+      seen.add(hri);
+      const lot = p.ai["10"] || p.ai["21"] || "", twice = !!lot && all.split(lot).length > 2;   // ラベルに LOT が 2 か所印字されていて、両方同じに読めたか
+      const b = l.bbox, x0 = b.x0 / sc, y0 = b.y0 / sc, x1 = b.x1 / sc, y1 = b.y1 / sc;
+      out.push({ text: hri, ocr: true, twice: twice, position: { topLeft: { x: x0, y: y0 }, topRight: { x: x1, y: y0 }, bottomRight: { x: x1, y: y1 }, bottomLeft: { x: x0, y: y1 } } });
+    }
+    return out;
   }
   $("#photoIn").addEventListener("change", async (e) => {
     const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
     photoMsg("写真を解読しています…（数秒かかります）", "dim");
     try {
       const mod = await import("https://cdn.jsdelivr.net/npm/zxing-wasm@2/dist/es/reader/index.js");
-      const rs = await decodePhoto(f, mod);
+      let rs = await decodePhoto(f, mod);
+      if (!rs.some((r) => /\(01\)\d{14}|^01\d{14}/.test(r.text))) {
+        photoMsg("バーコードから製品を読めないので、印字の文字を読んでいます…（初回は少し時間がかかります）", "dim");
+        try { rs = rs.concat(await ocrHri(f)); } catch (x) { log("文字の読み取りに失敗: " + (x && x.message || x)); }
+      }
       if (!rs.length) { photoMsg("写真からバーコードを見つけられませんでした。バーコードに近づいて画面いっぱいに大きく写し、ピントを合わせ、影や光の反射を避けて撮り直してください", "bad"); return; }
       ingestPhoto(rs);
       beep();
@@ -1373,7 +1417,7 @@
   $("#cDate").value = today(); $("#cPid").value = ""; $("#cProc").value = "自動";
   showMasterStat(); initKiki().then(initGudid);
   // デバッグ用（ブラウザのコンソールから解読を試すため）
-  window.AliceScan = { getReader, cam, diagText, addScan, hit, openCam, closeCam, ingestPhoto, decodePhoto };
+  window.AliceScan = { getReader, cam, diagText, addScan, hit, openCam, closeCam, ingestPhoto, decodePhoto, ocrHri };
 })();
 </script>
 </body>
