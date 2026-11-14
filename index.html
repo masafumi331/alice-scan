@@ -311,7 +311,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.7";
+  const VERSION = "2026-11-14.8";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -566,16 +566,18 @@
   // SEED は 2026-11 に院内の実ラベル（使用物品の台紙）の印字で確かめた形。あとは 1 本のバーコードに GTIN と LOT が入った読み取りと、目視確定した行から覚える
   const LSS = "scanLedger.lotShape";
   let SHP = (function () { try { return JSON.parse(localStorage.getItem(LSS)) || {}; } catch (e) { return {}; } })();
-  const SHAPE_SEED = { "4547327": ["999999A99A", "999999A999"], "4540778": ["AA999999"], "4543660": ["A9A999999A"], "4544043": ["A999A99", "A99A999A", "A999999A"], "4543527": ["9999999", "99A9999"],
-    "0852528": ["99AA9999"], "0850000": ["999999-9"], "4987458": ["99A99999"], "5415067": ["9999999", "99999999"] };
+  const SHAPE_SEED = { "4547327": ["999999A99A", "999999A999"], "4540778": ["AA999999"], "4543660": ["A9A999999A"], "4544043": ["A999A99", "A99A999A", "A999999A"], "4543527": ["99A9999"],
+    "0852528": ["99AA9999"], "0850000": ["999999-9"], "4987458": ["99A99999"], "5415067": ["99999A9", "99999999"] };   // 2026-11-14 訂正: 実機の読取ログ（1051126G1、1026G0188）と拡大画像で確かめ直した
   const shapeOf = (s) => String(s).replace(/[A-Za-z]/g, "A").replace(/\d/g, "9");
   const shapeKey = (jan) => jan13(jan).slice(0, 7);
   function knownShapes(jan) { const k = shapeKey(jan), a = new Set(SHAPE_SEED[k] || []); Object.keys(SHP[k] || {}).forEach((x) => a.add(x)); return a; }
   function learnShape(r) { if (!r || !r.jan || !r.lot) return; const k = shapeKey(r.jan), s = shapeOf(r.lot); if (SHP[k] && SHP[k][s]) return; (SHP[k] = SHP[k] || {})[s] = 1; try { localStorage.setItem(LSS, JSON.stringify(SHP)); } catch (e) {} }
-  const W_SHAPE = "LOTの形がこのメーカーの既知の形と違う（別の製品のLOTの恐れ）", W_DUPLOT = "同じLOTが別の製品にも付いている";
+  const W_SHAPE = "このメーカーで初めて見るLOTの形（箱の印字と照合。隣の製品のLOTでないか）", W_DUPLOT = "同じLOTが別の製品にも付いている";
   function shapeCheck(r) { if (!r.jan || !r.lot) return; const ks = knownShapes(r.jan); if (ks.size && !ks.has(shapeOf(r.lot))) { r.warn = r.warn || []; if (!r.warn.includes(W_SHAPE)) r.warn.push(W_SHAPE); r.q = "check"; } }
   // 別バーコードから足した LOT が、同じ症例の別の製品にも付いていたら、どちらかが取り違え
   function dupLotCheck(r) { if (!r.lot || !r.gtin || !cur) return; for (const x of cur.items) { if (x === r || x.lot !== r.lot || !x.gtin || x.gtin === r.gtin || !(x.merged || r.merged)) continue; for (const y of [x, r]) { y.warn = y.warn || []; if (!y.warn.includes(W_DUPLOT)) y.warn.push(W_DUPLOT); y.q = "check"; } } }
+  const W_SAMEG = "同じ製品が別のLOTでもう1行ある（2本使った？ 隣のラベルのLOTでないか箱で確認）";
+  function sameGtinCheck(r) { if (!r.lot || !r.gtin || !cur) return; const t = new Date(r.at).getTime(); for (const x of cur.items) { if (x === r || x.gtin !== r.gtin || !x.lot || x.lot === r.lot || Math.abs(new Date(x.at).getTime() - t) > MERGE_SEC * 1000 || !(x.merged || r.merged)) continue; r.warn = r.warn || []; if (!r.warn.includes(W_SAMEG)) r.warn.push(W_SAMEG); r.q = "check"; } }
   // 製品の型番だけのバーコードを患者ID と取り違えて、読み取り中に別の症例を始めてしまうのを防ぐ（英字入りのときだけ聞く。数字だけの患者ID は今までどおり）
   function askPid(t) {
     const el = $("#pidAsk"); if (!el) { setPid(t); return; }
@@ -665,6 +667,9 @@
     let p = GS1.parse(text); let tplState = "";
     let tplAlts = null; { const t2 = applyTpl(p, ev); if (t2) { tplState = t2.state; if (t2.p) p = t2.p; tplAlts = t2.alts || null; } }
     if ((p.ok && p.ai["01"] === GS1.TEST.gtin) || isShortTest(p, text)) { readerTest(p, text, ev); return null; }   // リーダー確認用コード（製品ではない）
+    // 製品コード（GTIN）は最後の 1 桁が検査用の数字。合わないのはリーダーの読み違い（実機で 04543527153775 が 04540227153759 と届いた例があった）。
+    // 行にすると、待っていた LOT まで間違った製品に付くので、入れずに読み直してもらう
+    if (p.ok && /^\d{14}$/.test(p.ai["01"] || "") && !GS1.gtinCheck(p.ai["01"]) && ev.src !== "self") { if (!quiet) log("読み違いです：製品コードの検査数字が合いません（届いた番号 " + p.ai["01"] + "）。台帳には入れていません。もう一度読んでください"); return null; }
     if (looksLikePid(text, p) || !p.ok) {
       const t = p.nonGs1 ? String(p.body).trim() : String(text).trim();   // GS1 でないバーコードは、種類の記号（]C0 など）を外した中身で判定する
       if (!p.ok) { const g = resolveBareProduct(t); if (g) return addScan("(01)" + g, quiet, ev); }   // ただの数字でも製品と分かれば製品として取り込む
@@ -698,12 +703,14 @@
     const refOther = (() => { if (!r.ref || !last || !last.jan) return false; const j = byRef(r.ref); return !!(j && j !== last.jan); })();   // その型番が別の製品のものなら、直前の行には足さない
     if (!r.gtin) {
       if (within(last) && ((r.lot && last.lot === r.lot) || (r.ref && last.ref === r.ref) || (r.serial && last.serial === r.serial))) { if (!quiet) log("同じ内容の再読み取り（無視）: " + text); return last; }
+      { const again = (r.lot || r.serial) ? [...items].reverse().find((x) => within(x) && ((r.lot && x.lot === r.lot) || (r.serial && x.serial === r.serial))) : null;
+        if (again) { if (!quiet) log("同じ内容の再読み取り（無視）: " + text); return again; } }
       const lastOpen = !!last && !last.lot && !last.serial;   // 直前の行が LOT もシリアルも持っていない（＝続きのバーコードを待っている）
       const idCode = !!(r.lot || r.serial);                    // LOT かシリアルを運ぶバーコード
       if (within(last) && !refOther && (idCode ? lastOpen : ((r.ref && !last.ref) || (r.expiry && !last.expiry)))) {
         carry(last, !!r.lot, true);
         if (r.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
-        if (r.lot && last.gtin) { shapeCheck(last); dupLotCheck(last); }
+        if (r.lot && last.gtin) { shapeCheck(last); dupLotCheck(last); sameGtinCheck(last); }
         last.raw += " | " + text; save(); render(); if (!quiet) log("直前の行に補完: " + text + (last.q === "check" ? "  ⚠ 要確認（箱の印字と照合）" : "")); return last;
       }
       // REF（品番）がマスターで一意に決まるなら、それで製品を特定する（メドトロニックの分割バーコードなど）
@@ -726,7 +733,7 @@
       carry(last, !!(r.lot && !last.lot), true);
       if (r.lot && !last.lot) last.lot = r.lot; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; } if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial;
       const m2 = lookup(last.jan); last.master = m2 ? "○" : "×"; if (m2) applyMaster(last, m2);
-      shapeCheck(last); dupLotCheck(last);
+      shapeCheck(last); dupLotCheck(last); sameGtinCheck(last);
       last.raw += " | " + text; save(); render(true);
       if (!quiet) log((m2 ? m2.name + " " + (m2.size || "") : "マスター未登録 JAN " + last.jan) + "  LOT=" + (last.lot || "—") + "  期限=" + (last.expiry || "—") + "（分割バーコードを統合）");
       return last;
