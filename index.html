@@ -35,7 +35,7 @@
   html[data-theme="alice"] #scan { font-size:18px; letter-spacing:0; }
   html[data-theme="alice"] .brand, html[data-theme="alice"] h2, html[data-theme="alice"] .brand small { color:#30243F; }
   /* 左上のマーク: 紫の配色ではバイオレットの角丸にラベンダーの心電図線（黒地に水色は黒テーマ用） */
-  html[data-theme="alice"] .brand svg rect { fill:#6F4CC3; } html[data-theme="alice"] .brand svg path { stroke:#EDE6FA; }
+  .brand svg.lg { display:none; } html[data-theme="alice"] .brand svg:not(.lg) { display:none; } html[data-theme="alice"] .brand svg.lg { display:block; }
   html[data-theme="alice"] .ok { color:#18794E; border-color:rgba(24,121,78,.45); background:#EAF7EF; } html[data-theme="alice"] .warn { background:#FFF4D6; } html[data-theme="alice"] .bad { background:#FFF0F0; }
   html[data-theme="alice"] .chip.on { background:#6F4CC3; } html[data-theme="alice"] .chip.seg.on { background:#D8C9F1; color:#30243F; border-color:#D8C9F1; }
   html[data-theme="alice"] tr.siterow td { background:rgba(216,201,241,.18); }
@@ -140,6 +140,42 @@
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
   #cam .ocr button { font-family:var(--mono); font-size:18px; letter-spacing:.06em; padding:10px 16px; border-radius:12px; border:1px solid var(--cyan); background:rgba(7,11,20,.85); color:var(--cyan); }
   .ecg { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:0; opacity:calc(.35 * var(--fx)); pointer-events:none; }
+  /* ===== Alice NDC ロゴに合わせたデザイン（2026-11-14）。配色「Alice（紫）」の上書き：白い本文＋濃紺紫のヘッダー。左上のマークはこの配色のときだけロゴの A（svg.lg）に切り替える ===== */
+  /* ===== 案1 ミニマル白：影なし・細い罫線・角ばったボタン。論文の表のような上下の太罫 ===== */
+  html[data-theme="alice"] { --grad:linear-gradient(100deg,#6F4CC3 0%,#6366F1 55%,#5B8DEF 100%);
+    --bg:#ffffff; --bg2:#ffffff; --bg3:#ffffff; --ink:#1F1B2E; --muted:#5E6478; --dim:#9296A6; --line:rgba(31,27,46,.12);
+    --cyan:#5B4BD1; --cyan2:#4338CA; --accent-ink:#ffffff; --body-bg:#ffffff; --header-bg:rgba(255,255,255,.94);
+    --card-bg:#ffffff; --card-shadow:none; --th-bg:#ffffff; --scan-bg:#ffffff; --btn-border:rgba(31,27,46,.22); --hover:rgba(91,75,209,.04); }
+  html[data-theme="alice"] header { padding:15px 32px; }
+  html[data-theme="alice"] main { max-width:1320px; gap:22px; padding:28px 32px 60px; }
+  html[data-theme="alice"] .brand { font-size:21px; letter-spacing:0; gap:9px; color:#1F1B2E; }
+  html[data-theme="alice"] .brand b { background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-left:.18em; font-weight:600; }
+  html[data-theme="alice"] .card { border-radius:10px; padding:24px 26px; }
+  html[data-theme="alice"] .eyebrow { color:#9296A6; font-size:11px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; }
+  html[data-theme="alice"] h2 { color:#1F1B2E; font-size:19px; }
+  html[data-theme="alice"] .btn, html[data-theme="alice"] .chip, html[data-theme="alice"] .lk { border-radius:7px; }
+  html[data-theme="alice"] .btn.primary { background:#5B4BD1; border-color:#5B4BD1; box-shadow:none; }
+  html[data-theme="alice"] .btn.primary:hover { background:#4338CA; color:#fff; box-shadow:none; }
+  html[data-theme="alice"] .chip.on { background:#5B4BD1; border-color:#5B4BD1; }
+  html[data-theme="alice"] .chip.seg.on { background:#E7E4FA; color:#1F1B2E; border-color:#E7E4FA; }
+  html[data-theme="alice"] input[type=text], html[data-theme="alice"] input[type=date], html[data-theme="alice"] select, html[data-theme="alice"] textarea { border-radius:7px; border-color:rgba(31,27,46,.2); }
+  html[data-theme="alice"] #scan { border:1.5px solid #5B4BD1; border-radius:8px; color:#1F1B2E; }
+  html[data-theme="alice"] .tablewrap { border:none; border-radius:0; border-top:2px solid #1F1B2E; border-bottom:2px solid #1F1B2E; }
+  html[data-theme="alice"] th { color:#1F1B2E; border-bottom:1px solid #1F1B2E; }
+  html[data-theme="alice"] .lesion { border-radius:8px; }
+  html[data-theme="alice"] .dot { background:#5B4BD1; box-shadow:none; } html[data-theme="alice"] .dot.off { box-shadow:none; }
+  /* --- ヘッダーだけ濃紺紫の帯（ロゴを白抜きで見せ、下にロゴ色の線） --- */
+  html[data-theme="alice"] { --header-bg:#1E1838; }
+  html[data-theme="alice"] header { background:linear-gradient(100deg,#231A40 0%,#1D2150 100%); border-bottom:none; backdrop-filter:none; }
+  html[data-theme="alice"] header::after { content:""; position:absolute; left:0; right:0; bottom:-3px; height:3px; background:var(--grad); }
+  html[data-theme="alice"] .brand { color:#ffffff; }
+  html[data-theme="alice"] .brand b { background:none; -webkit-background-clip:border-box; background-clip:border-box; color:#B7B0FF; }
+  html[data-theme="alice"] .brand small { color:#9D97C4; }
+  html[data-theme="alice"] .status { color:#CFCBE8; }
+  html[data-theme="alice"] .status select { background-color:rgba(255,255,255,.1); color:#fff; border-color:rgba(255,255,255,.22); }
+  html[data-theme="alice"] .status select option { background:#231A40; color:#fff; }
+  html[data-theme="alice"] header .dot { background:#8FA8FF; box-shadow:0 0 0 3px rgba(143,168,255,.22); }
+  html[data-theme="alice"] header .dot.off { background:#FF7A8A; box-shadow:0 0 0 3px rgba(255,122,138,.2); }
 </style>
 </head>
 <body>
@@ -147,7 +183,7 @@
 <svg class="ecg" viewBox="0 0 1400 70" preserveAspectRatio="none"><path d="M0 40h120l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h90l16-30 14 60 16-40 10 10h140l20-8 12 8h120" fill="none" stroke="var(--cyan)" stroke-width="1.6"/></svg>
 
 <header>
-  <div class="brand"><svg width="26" height="26" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#0e1729"/><path d="M6 21h8l3-8 5 16 4-12 3 4h5" fill="none" stroke="#19e3d1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Alice<b>Scan</b><small>UDI Ledger</small></div>
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#0e1729"/><path d="M6 21h8l3-8 5 16 4-12 3 4h5" fill="none" stroke="#19e3d1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><svg class="lg" width="30" height="30" viewBox="0 2 200 200"><defs><linearGradient id="bL" gradientUnits="userSpaceOnUse" x1="-25" y1="0" x2="156.59" y2="0"><stop offset="0" stop-color="#6F4CC3"/><stop offset="1" stop-color="#A78BFA"/></linearGradient><linearGradient id="bR" gradientUnits="userSpaceOnUse" x1="-25" y1="0" x2="156.59" y2="0"><stop offset="0" stop-color="#5B8DEF"/><stop offset="1" stop-color="#6366F1"/></linearGradient><clipPath id="bC"><rect x="-25" y="-25" width="181.59" height="50" rx="25" transform="translate(46 162) rotate(-65.772)"/></clipPath></defs><rect x="-25" y="-25" width="181.59" height="50" rx="25" transform="translate(46 162) rotate(-65.772)" fill="url(#bL)"/><rect x="-25" y="-25" width="181.59" height="50" rx="25" transform="translate(154 162) rotate(-114.228)" fill="url(#bR)"/><g clip-path="url(#bC)"><rect x="-25" y="-25" width="181.59" height="50" rx="25" transform="translate(154 162) rotate(-114.228)" fill="#4338CA"/></g></svg>Alice<b>Scan</b><small>UDI Ledger</small></div>
   <div class="status"><span id="masterStat"><span class="dot off"></span>辞書</span><span id="camStat"></span><select id="themeSel" title="配色"><option value="dark">黒</option><option value="dark-soft">黒・マイルド</option><option value="light">白</option><option value="light-soft">白・マイルド</option><option value="alice">Alice（紫）</option></select></div>
 </header>
 
@@ -314,7 +350,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.11";
+  const VERSION = "2026-11-14.12";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -1232,7 +1268,7 @@
   $("#btnTorch").onclick = () => { const t = cam.stream && cam.stream.getVideoTracks()[0]; if (t) { const on = !(t.getSettings().torch); t.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}); } };
   $("#camStat").textContent = "v" + VERSION;
   // 配色の切替（端末に記憶。?theme=light-soft のように URL でも指定可）
-  const THEME_COLOR = { dark: "#070b14", "dark-soft": "#161c26", light: "#f4f6f9", "light-soft": "#f3f1ec", alice: "#F7F5FA" };
+  const THEME_COLOR = { dark: "#070b14", "dark-soft": "#161c26", light: "#f4f6f9", "light-soft": "#f3f1ec", alice: "#231A40" };
   function applyTheme(t) { t = THEME_COLOR[t] ? t : "dark"; if (t === "dark") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); document.querySelector("meta[name=theme-color]").setAttribute("content", THEME_COLOR[t]); $("#themeSel").value = t; }
   applyTheme(document.documentElement.getAttribute("data-theme") || "dark");
   $("#themeSel").onchange = () => { applyTheme($("#themeSel").value); try { localStorage.setItem("scanLedger.theme", $("#themeSel").value); } catch (e) {} };
