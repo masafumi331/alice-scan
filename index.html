@@ -261,6 +261,7 @@
         <button class="btn" id="btnJson">この症例を JSON</button>
         <button class="btn" id="btnAllCsv">全症例を CSV</button>
       </div>
+      <div id="twinAsk" class="stat" style="display:none; margin-top:10px; padding:10px 12px; border:1px solid var(--gold); border-left-width:6px; border-radius:10px; line-height:1.9; color:var(--ink)"></div>
       <!-- 製品辞書の欄は画面に出さない（2026-11-08 先生「個人的に使用するものではないので」。機能は残す） -->
       <div style="display:none"><h2 style="margin-top:22px">製品辞書</h2>
       <div class="row">
@@ -350,7 +351,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-14.12";
+  const VERSION = "2026-11-16.1";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -617,6 +618,18 @@
   function dupLotCheck(r) { if (!r.lot || !r.gtin || !cur) return; for (const x of cur.items) { if (x === r || x.lot !== r.lot || !x.gtin || x.gtin === r.gtin || !(x.merged || r.merged)) continue; for (const y of [x, r]) { y.warn = y.warn || []; if (!y.warn.includes(W_DUPLOT)) y.warn.push(W_DUPLOT); y.q = "check"; } } }
   const W_SAMEG = "同じ製品が別のLOTでもう1行ある（2本使った？ 隣のラベルのLOTでないか箱で確認）";
   function sameGtinCheck(r) { if (!r.lot || !r.gtin || !cur) return; const t = new Date(r.at).getTime(); for (const x of cur.items) { if (x === r || x.gtin !== r.gtin || !x.lot || x.lot === r.lot || Math.abs(new Date(x.at).getTime() - t) > MERGE_SEC * 1000 || !(x.merged || r.merged)) continue; r.warn = r.warn || []; if (!r.warn.includes(W_SAMEG)) r.warn.push(W_SAMEG); r.q = "check"; } }
+  // 同じ症例に「同じ製品・同じ LOT（シリアルも同じ）」が 2 行以上＝同じサイズを 2 本使ったか、同じ箱（日本語ラベルと販売店ラベルなど）を 2 回読んだか。
+  // シリアルが無いのでバーコードでは見分けられない。読み取りのときは消さずに行を残し、保存（CSV）の前にまとめて人が決める（2026-11-16 先生「全部登録してから、最後に確認させてから登録」）
+  function twinOf(r, c) {
+    c = c || cur; if (!c || !r) return -1;
+    const i = c.items.indexOf(r), n = i < 0 ? c.items.length : i;
+    if (!r.gtin) { for (let j = 0; j < n; j++) { const x = c.items[j]; if ((r.lot && x.lot === r.lot) || (r.serial && x.serial === r.serial)) return j; } return -1; }   // 製品がまだ決まらない LOT だけの行
+    for (let j = 0; j < n; j++) { const x = c.items[j]; if (x.gtin === r.gtin &&(x.serial || "") === (r.serial || "") && ((x.lot || "") === (r.lot || "") || (!r.lot && !r.serial))) return j; }
+    return -1;
+  }
+  function twinOpen(r, c) { return !!r && !r.twinOk && twinOf(r, c) >= 0; }
+  function caseOf(r) { if (cur && cur.items.includes(r)) return cur; return Object.values(db.cases).find((c) => c.items.includes(r)) || cur; }
+  const SEEN = {};   // カメラ・写真で同じ文字列を見た時刻（かざしたままの連続読みや、1 枚の写真に同じラベルが 2 枚写ったのを 2 本と数えない）
   // 製品の型番だけのバーコードを患者ID と取り違えて、読み取り中に別の症例を始めてしまうのを防ぐ（英字入りのときだけ聞く。数字だけの患者ID は今までどおり）
   function askPid(t) {
     const el = $("#pidAsk"); if (!el) { setPid(t); return; }
@@ -634,11 +647,12 @@
     else if (!r.gtin) { lv = "warn"; t = (repeat ? "同じバーコードをもう一度読みました。" : "") + "LOT／シリアルだけ読めています（" + (r.lot || r.serial || r.ref) + "）→ 同じラベルのもう 1 本（(01) で始まる製品のバーコード）を読んでください"; }
     else if (open) { lv = "warn"; t = (repeat ? "同じバーコードをもう一度読みました。" : "") + nm + "：LOT がまだ入っていません → 同じラベルのもう 1 本（(10) の LOT のバーコード）を読んでください（LOT のバーコードが無い製品はそのままで構いません）"; }
     else if (r.q === "check") { lv = "bad"; t = nm + "　LOT " + (r.lot || "—") + "　期限 " + (r.expiry || "—") + "　⚠ 要確認（箱の印字と照らしてください）"; }
+    else if (twinOpen(r)) { lv = "warn"; var twinMsg = true; t = nm + "　LOT " + (r.lot || "—") + "　→ 同じ製品・同じLOTの " + (cur.items.filter((x) => x.gtin === r.gtin && (x.lot || "") === (r.lot || "")).length) + " 本目として登録しました（2 本使ったのか二重読みかは、保存の前にまとめて確認します）"; }
     else if (repeat) { lv = "dim"; t = "読み取り済みです（" + nm + "　LOT " + (r.lot || "—") + (r.serial ? "　SN " + r.serial : "") + "）"; }
     else { lv = "ok"; t = "✓ " + nm + "　LOT " + (r.lot || "—") + (r.serial ? "　SN " + r.serial : "") + "　期限 " + (r.expiry || "—"); }
     const col = { ok: "var(--cyan)", warn: "var(--gold)", bad: "var(--coral)", dim: "var(--muted)" }[lv];
     el.textContent = t; el.style.display = "block"; el.style.borderColor = col; el.style.color = lv === "dim" ? "var(--muted)" : "var(--ink)"; el.style.borderLeftWidth = "6px";
-    if (via === "hid") { if (lv === "warn") { tone(520, 110); tone(520, 110, .16); } else if (lv === "bad") tone(240, 380); }   // 足りない＝2 回の短い音、要確認・入らない＝低い長い音（通ったときは鳴らさない）
+    if (via === "hid" && !twinMsg) { if (lv === "warn") { tone(520, 110); tone(520, 110, .16); } else if (lv === "bad") tone(240, 380); }   // 足りない＝2 回の短い音、要確認・入らない＝低い長い音（通ったときは鳴らさない）
   }
   const LSG = "scanLedger.scanLog";
   let SLOG = (function () { try { return JSON.parse(localStorage.getItem(LSG)) || []; } catch (e) { return []; } })();
@@ -740,18 +754,27 @@
     if (!r.alts.length) delete r.alts;
     const items = cur.items; const last = items[items.length - 1];
     const within = (a) => a && (Date.now() - new Date(a.at).getTime()) / 1000 <= MERGE_SEC;
+    // deliberate＝人が 1 回ずつ読ませた読み取り（リーダー・手入力・貼り付け）。カメラ・写真は同じ文字列を 6 秒以内に見ていたら、かざしたままの読み直しとみなす
+    const camLike = ev.src === "cam" || ev.src === "photo"; let deliberate = true;
+    if (camLike) { const k = String(text), pv = SEEN[k]; SEEN[k] = Date.now(); if (pv && Date.now() - pv < 6000) deliberate = false; }
+    const complete = (x) => !!(x && x.gtin && (x.lot || x.serial));
     // 別のバーコードの内容を行に足したとき、その読み取りの注意・要確認・候補も一緒に持っていく。byTime＝時刻が近いというだけで足した（同じ箱かは人が確かめる）
     const carry = (dst, tookLot, byTime) => { if (byTime) dst.merged = true; dst.warn = dst.warn || []; (r.warn || []).forEach((w) => { if (!dst.warn.includes(w)) dst.warn.push(w); }); if (r.q === "check") dst.q = "check"; if (tookLot && r.alts) dst.alts = r.alts; };
     const refOther = (() => { if (!r.ref || !last || !last.jan) return false; const j = byRef(r.ref); return !!(j && j !== last.jan); })();   // その型番が別の製品のものなら、直前の行には足さない
     if (!r.gtin) {
-      if (within(last) && ((r.lot && last.lot === r.lot) || (r.ref && last.ref === r.ref) || (r.serial && last.serial === r.serial))) { if (!quiet) log("同じ内容の再読み取り（無視）: " + text); return last; }
-      { const again = (r.lot || r.serial) ? [...items].reverse().find((x) => within(x) && ((r.lot && x.lot === r.lot) || (r.serial && x.serial === r.serial))) : null;
-        if (again) { if (!quiet) log("同じ内容の再読み取り（無視）: " + text); return again; } }
+      // REF だけの読み直し: 直前の行がもう完成していれば、同じ製品の 2 箱目（海外ラベルで REF→LOT と読む）として新しい行にする。2 本目か二重読みかは保存前に確認
+      // 同じ LOT・REF・シリアルの読み直しも無視しない（2026-11-16 先生「無視するのではなく、最後に確認」）。行を足し、2 本目か二重読みかは保存の前に確認する。
+      // 無視するのはカメラ・写真で同じ文字列を見続けているときだけ（人が読ませた 1 回ではない）
+      const sameAs = (x) => within(x) && ((r.lot && x.lot === r.lot) || (r.serial && x.serial === r.serial) || (r.ref && !r.lot && !r.serial && x === last && x.ref === r.ref));
+      const again = [...items].reverse().find(sameAs) || null;
+      if (again && !deliberate) { if (!quiet) log("カメラが同じバーコードを見続けています（行は足しません）: " + text); return again; }
       const lastOpen = !!last && !last.lot && !last.serial;   // 直前の行が LOT もシリアルも持っていない（＝続きのバーコードを待っている）
       const idCode = !!(r.lot || r.serial);                    // LOT かシリアルを運ぶバーコード
-      if (within(last) && !refOther && (idCode ? lastOpen : ((r.ref && !last.ref) || (r.expiry && !last.expiry)))) {
+      const againOther = !!(again && idCode && (!last || !last.gtin || last.gtin !== again.gtin));   // 読み直した LOT は前の別の製品のもの → 待っている行には付けない
+      if (within(last) && !refOther && !againOther && (idCode ? lastOpen : ((r.ref && !last.ref) || (r.expiry && !last.expiry)))) {
         carry(last, !!r.lot, true);
         if (r.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
+        if (!last.gtin && r.ref) { const jr2 = byRef(r.ref); if (jr2) { last.jan = jr2; last.gtin = jr2.padStart(14, "0"); last.refResolved = true; last.pending = false; const m3 = lookup(jr2); last.master = m3 ? "○" : "×"; if (m3) applyMaster(last, m3); } }   // LOT だけの行に REF が来たら製品が決まる
         if (r.lot && last.gtin) { shapeCheck(last); dupLotCheck(last); sameGtinCheck(last); }
         last.raw += " | " + text; save(); render(); if (!quiet) log("直前の行に補完: " + text + (last.q === "check" ? "  ⚠ 要確認（箱の印字と照合）" : "")); return last;
       }
@@ -780,8 +803,10 @@
       if (!quiet) log((m2 ? m2.name + " " + (m2.size || "") : "マスター未登録 JAN " + last.jan) + "  LOT=" + (last.lot || "—") + "  期限=" + (last.expiry || "—") + "（分割バーコードを統合）");
       return last;
     }
-    const dup = [...items].reverse().find((x) => x.gtin === r.gtin && within(x) && (!x.lot || !r.lot || x.lot === r.lot));
-    if (dup) {
+    const dup = [...items].reverse().find((x) => x.gtin === r.gtin && within(x) && (!x.lot || !r.lot || x.lot === r.lot) && !(x.serial && r.serial && x.serial !== r.serial));
+    // 同じ製品・同じ LOT を、足す情報の無いまま読み直した: 以前は無視していたが、同じサイズの 2 本目かもしれないので行を足す（保存前に確認）
+    const twinNew = !!(dup && deliberate && complete(dup) && (r.lot ? dup.lot === r.lot : !r.serial) &&!dup.refResolved && !(r.expiry && !dup.expiry) && !(r.serial && !dup.serial) && !(r.ref && !dup.ref));
+    if (dup && !twinNew) {
       let changed = false;
       if ((r.lot && !dup.lot) || (r.expiry && !dup.expiry)) carry(dup, !!(r.lot && !dup.lot), false);
       if (r.lot && !dup.lot) { dup.lot = r.lot; changed = true; } if (r.expiry && !dup.expiry) { dup.expiry = r.expiry; dup.expiryRaw = r.expiryRaw; changed = true; } if (r.ref && !dup.ref) { dup.ref = r.ref; changed = true; } if (r.serial && !dup.serial) { dup.serial = r.serial; changed = true; }
@@ -792,7 +817,7 @@
     const m = lookup(r.jan); r.master = m ? "○" : "×"; if (m) applyMaster(r, m);
     if (r.lot && r.q === "ok" && r.via !== "self" && r.via !== "paste" && (!r.noGs || readerOk())) learnShape(r);   // 区切りが届くか分からないリーダーの読み取りからは覚えない（つながった LOT を正しい形として覚えてしまうため）   // 1 本のバーコードに GTIN と LOT が入っている＝持ち主が確かな LOT
     items.push(r); save(); render(true);
-    if (!quiet) log((m ? m.name + " " + (m.size || "") : "マスター未登録 JAN " + r.jan) + "  LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—"));
+    if (!quiet) log((m ? m.name + " " + (m.size || "") : "マスター未登録 JAN " + r.jan) + "  LOT=" + (r.lot || "—") + "  期限=" + (r.expiry || "—") + (twinOpen(r) ? "（同じ製品・同じLOTの行がもう 1 つあります → 保存の前に確認）" : ""));
     return r;
   }
 
@@ -913,7 +938,37 @@
   }
   // 保存（CSV）前の確認: 部位 → 手技が未判定 → 患者ID なし（仮番号のまま出すと後で突合しにくい）
   const NL = String.fromCharCode(10);
-  function exportGate(cases) {
+  // 保存の前の「同じLOTが2行」確認。書き出しボタンを押したら一覧を出し、全部決まったら同じボタンの保存へ進む
+  let twinNext = null;   // { keys: [症例キー], btn: 押されたボタンの id }
+  function twinRows(cases) { const out = []; for (const c of cases) c.items.forEach((r, i) => { if (twinOpen(r, c)) out.push({ c: c, r: r, i: i, j: twinOf(r, c) }); }); return out; }
+  function twinResolve(c, i, used) {
+    const r = c && c.items[i]; if (!r) return;
+    if (used) { r.twinOk = { at: now() }; log("同じLOTの " + (r.name || r.jan) + " LOT " + (r.lot || "—") + " を 2 本使用として確定"); }
+    else { c.items.splice(i, 1); log("二重読みの行を消しました: " + (r.name || r.jan) + " LOT " + (r.lot || "—")); }
+    save(); render();
+  }
+  function renderTwinAsk() {
+    const el = $("#twinAsk"); if (!el) return;
+    if (!twinNext) { el.style.display = "none"; return; }
+    const cases = twinNext.keys.map((k) => db.cases[k]).filter(Boolean), L = twinRows(cases); el.style.display = "block";
+    if (!L.length) { el.innerHTML = "✓ 同じLOTの行はすべて決まりました。" + '<button class="btn primary" id="twinGo" style="margin-left:8px">このまま保存する</button><button class="btn" id="twinStop" style="margin-left:6px">閉じる</button>';
+      $("#twinGo").onclick = () => { const id = twinNext.btn; twinNext = null; el.style.display = "none"; $("#" + id).click(); }; $("#twinStop").onclick = () => { twinNext = null; el.style.display = "none"; }; return; }
+    el.innerHTML = "<b>保存の前に確認：同じ製品・同じLOTの行が " + L.length + " 件あります</b><br>" +
+      "同じサイズを 2 本使ったなら「2本使った」、同じ箱のバーコード（日本語ラベルと販売店のラベルなど）を 2 回読んだなら「二重読み → 消す」。空き箱の数と合わせると確実です。" +
+      L.map((x) => { const a = x.c.items[x.j], r = x.r, k = esc(caseKey(x.c));
+        return '<div style="border-top:1px solid var(--line); margin-top:8px; padding-top:6px">' + (cases.length > 1 ? '<span class="mono">' + k + "</span>　" : "") +
+          "<b>" + esc([r.name || (r.jan ? "JAN " + r.jan : "（製品不明）"), r.size].filter(Boolean).join(" ")) + "</b>　LOT " + esc(r.lot || "—") + "　期限 " + esc(r.expiry || "—") +
+          '<span class="stat" style="margin:0 0 0 8px">' + (x.j + 1) + " 行目（" + hhmm(a.at) + "）と " + (x.i + 1) + " 行目（" + hhmm(r.at) + "）</span><br>" +
+          '<button class="btn sm" data-twc="' + k + '" data-twi="' + x.i + '" data-twu="1">2本使った</button> <button class="btn sm" data-twc="' + k + '" data-twi="' + x.i + '" data-twu="0">二重読み → ' + (x.i + 1) + " 行目を消す</button></div>"; }).join("") +
+      '<div style="margin-top:8px"><button class="btn sm" id="twinStop">あとで（保存しない）</button></div>';
+    $("#twinStop").onclick = () => { twinNext = null; el.style.display = "none"; };
+  }
+  $("#twinAsk").addEventListener("click", (e) => { const k = e.target.getAttribute("data-twc"); if (k == null) return; twinResolve(db.cases[k], +e.target.getAttribute("data-twi"), e.target.getAttribute("data-twu") === "1"); });
+  function exportGate(cases, btn) {
+    const twl = twinRows(cases);
+    if (twl.length) { twinNext = { keys: cases.map(caseKey), btn: btn };
+      alert("同じ製品・同じLOTの行が " + twl.length + " 件あるため、まだ保存できません。" + NL + "同じサイズを 2 本使ったのか、同じ箱を 2 回読んだのかを、書き出しボタンの下の欄で選んでください。" + NL + NL + twl.slice(0, 10).map((x) => (cases.length > 1 ? caseKey(x.c) + "　" : "") + (x.r.name || x.r.jan || "（製品不明）") + " " + (x.r.size || "") + "　LOT " + (x.r.lot || "—")).join(NL));
+      renderTwinAsk(); try { $("#twinAsk").scrollIntoView({ block: "center" }); } catch (e) {} return false; }
     if (!siteGate(cases)) return false;
     const rq = cases.flatMap((c) => c.items.filter((r) => r.q === "check").map((r) => caseKey(c) + "　" + (r.name || r.jan || r.gtin || "（製品不明）") + "　LOT " + (r.lot || "—") + "　期限 " + (r.expiry || "—")));
     if (rq.length && !confirm("読み取りが要確認の行があります（区切り抜けの疑い・実在しない日付など）。箱の印字と照らして「箱と同じ → 確定」を押すか、手で直してから保存することを勧めます。" + NL + NL + rq.slice(0, 12).join(NL) + (rq.length > 12 ? NL + "…ほか " + (rq.length - 12) + " 行" : "") + NL + NL + "このまま保存しますか？")) return false;
@@ -928,6 +983,7 @@
   function notes(r) {
     const n = [];
     if (r.q === "check") n.push(["読取要確認（箱の印字と照合）", "bad"]);
+    if (twinOf(r, caseOf(r)) >= 0) n.push(r.twinOk ? ["同じLOTを複数本使用（確認済）", "ok"] : ["同じLOTの2本目？（保存前に確認）", "warn"]);
     if (r.verified) n.push(["目視確定", "ok"]);
     if (r.merged) n.push(["分割バーコードを統合（箱で確認）", "warn"]);
     if (r.paired) n.push(["写真で隣り合う2本を組に", "ok"]);
@@ -947,7 +1003,7 @@
   }
   function render(flashLast) {
     if (cur && cur.proc === "自動") setProc(inferProc(cur));
-    renderPending(); if (cur) autoSite(); renderLesions();
+    renderPending(); if (cur) autoSite(); renderLesions(); if (twinNext) renderTwinAsk();
     const sel = $("#caseSel"); sel.innerHTML = "";
     Object.keys(db.cases).sort().reverse().forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = k + "（" + db.cases[k].items.length + "）"; sel.appendChild(o); });
     if (cur) sel.value = caseKey(cur);
@@ -970,6 +1026,7 @@
         (r.alts ? r.alts.map((a, k) => '<button class="lk" data-alt="' + i + '" data-k="' + k + '" title="箱の印字がこの内容なら押す">候補にする：' + esc(a.label) + "</button>").join("") : "") +
         (r.merged && r.lot && r.gtin && !r.verified ? '<button class="lk" data-unlot="' + i + '" title="この LOT が別の製品のものだったとき。LOT を外して「製品バーコード待ち」に戻します">LOTを外す</button>' : "") +
         (r.q === "check" ? '<button class="lk" data-okq="' + i + '" title="箱の印字と照らして、この行の LOT・使用期限が正しいとき">箱と同じ → 確定</button>' : "") +
+        (twinOpen(r) ? '<button class="lk" data-twok="' + i + '" title="同じサイズ・同じLOTを本当に 2 本以上使ったとき">2本使った</button><button class="lk" data-twdel="' + i + '" title="同じ箱のバーコード（日本語ラベルと販売店ラベルなど）を 2 回読んだとき。この行を消します">二重読み → 消す</button>' : "") +
         '</td><td><button class="x" data-del="' + i + '">×</button></td>';
       if (flashLast && i === cur.items.length - 1) tr.classList.add("flash");
       if (siteKind(r) && siteMaster()) tr.classList.add("siterow");
@@ -1376,6 +1433,8 @@
   $("#pendAll").onchange = (e) => document.querySelectorAll(".pchk").forEach((x) => { x.checked = e.target.checked; });
   $("#tbl").addEventListener("click", async (e) => {
     const t = e.target; const d = t.getAttribute("data-del"); if (d != null && cur) { cur.items.splice(+d, 1); save(); render(); return; }
+    const tw = t.getAttribute("data-twok"), tx = t.getAttribute("data-twdel");
+    if ((tw != null || tx != null) && cur) { twinResolve(cur, +(tw != null ? tw : tx), tw != null); return; }
     const st = t.getAttribute("data-sitetog"); if (st != null && cur) { const r = cur.items[+st]; const id = t.getAttribute("data-lid"); const ids = siteIds(r); const j = ids.indexOf(id); if (j >= 0) ids.splice(j, 1); else ids.push(id); r.siteAuto = false; save(); render(); return; }
     // 読取要確認の行: 候補（区切り抜けを補った分け方）を選ぶ／箱の印字と同じなら確定する。どちらも人が箱を見て決める
     const al = t.getAttribute("data-alt");
@@ -1416,11 +1475,11 @@
       // 手で直した使用期限は YYYY-MM-DD の実在する日付だけ通す（2/31 などはそのまま残して要確認にする）
       if (f === "expiry") { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v); const okDate = !v || (m && GS1.dateInfo(m[1].slice(2) + m[2] + m[3]).ok); r.warn = r.warn.filter((w) => w !== "使用期限の書式が不正"); if (!okDate) { r.warn.push("使用期限の書式が不正"); r.q = "check"; } }
       save(); render(); } } }, true);
-  $("#btnCsv").onclick = () => cur && exportGate([cur]) && download(fileBase(cur) + ".csv", csv(rows(cur)), "text/csv");
-  $("#btnJimu").onclick = () => cur && exportGate([cur]) && download("事務_" + fileBase(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
-  $("#btnJimuAll").onclick = () => exportGate(Object.values(db.cases)) && download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
-  $("#btnJson").onclick = () => cur && exportGate([cur]) && download(fileBase(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
-  $("#btnAllCsv").onclick = () => exportGate(Object.values(db.cases)) && download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
+  $("#btnCsv").onclick = () => cur && exportGate([cur], "btnCsv") && download(fileBase(cur) + ".csv", csv(rows(cur)), "text/csv");
+  $("#btnJimu").onclick = () => cur && exportGate([cur], "btnJimu") && download("事務_" + fileBase(cur) + ".csv", csv(jrows(cur), JCOLS), "text/csv");
+  $("#btnJimuAll").onclick = () => exportGate(Object.values(db.cases), "btnJimuAll") && download("事務_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(jrows), JCOLS), "text/csv");
+  $("#btnJson").onclick = () => cur && exportGate([cur], "btnJson") && download(fileBase(cur) + ".json", JSON.stringify(cur, null, 1), "application/json");
+  $("#btnAllCsv").onclick = () => exportGate(Object.values(db.cases), "btnAllCsv") && download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
   // 症例を開いたまま手技を選び直したら、その症例の手技を変える（鍵・ファイル名も付け直す）
   $("#cProc").onchange = () => { if (cur && $("#cProc").value !== cur.proc) { setProc($("#cProc").value, true); render(); } };
   if (new URLSearchParams(location.search).get("selftest") === "1") setTimeout(() => $("#btnSelfTest").click(), 300);
