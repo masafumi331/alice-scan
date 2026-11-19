@@ -134,9 +134,10 @@
   #cam .fail { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(92vw, 520px); background:rgba(11,18,33,.96); border:1px solid rgba(255,90,110,.5); border-radius:18px; padding:22px; font-size:16px; line-height:1.7; z-index:2; }
   #cam .fail h3 { margin:0 0 8px; color:#FF8A98; font-size:18px; }
   #cam .fail .row { margin-top:14px; }
-  #cam .hit { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); background:var(--cyan); color:var(--accent-ink); padding:10px 18px; border-radius:22px; font-weight:700; max-width:90vw; text-align:center; opacity:0; transition:opacity .2s; }
+  #cam .hit { position:absolute; left:50%; top:calc(92px + env(safe-area-inset-top)); transform:translateX(-50%); background:var(--cyan); color:var(--accent-ink); padding:10px 18px; border-radius:22px; font-weight:700; max-width:90vw; text-align:center; opacity:0; transition:opacity .2s; z-index:3; line-height:1.5; }
+  #cam .hit button { display:block; margin:8px auto 0; font:inherit; font-size:14px; padding:6px 14px; border-radius:14px; border:1px solid var(--accent-ink); background:var(--accent-ink); color:var(--cyan); }
   #cam .hit.show { opacity:1; }
-  #cam .live { position:absolute; left:0; right:0; bottom:calc(84px + env(safe-area-inset-bottom)); text-align:center; font-family:var(--mono); font-size:12px; color:var(--muted); pointer-events:none; }
+  #cam .live { position:absolute; left:0; right:0; top:calc(66px + env(safe-area-inset-top)); text-align:center; font-family:var(--mono); font-size:11px; color:var(--muted); pointer-events:none; padding:0 16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
   #cam .ocr button { font-family:var(--mono); font-size:18px; letter-spacing:.06em; padding:10px 16px; border-radius:12px; border:1px solid var(--cyan); background:rgba(7,11,20,.85); color:var(--cyan); }
   .ecg { position:fixed; left:0; right:0; bottom:0; height:70px; z-index:0; opacity:calc(.35 * var(--fx)); pointer-events:none; }
@@ -367,7 +368,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-19.1";
+  const VERSION = "2026-11-19.3";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -647,7 +648,9 @@
   }
   function twinOpen(r, c) { return !!r && !r.twinOk && twinOf(r, c) >= 0; }
   function caseOf(r) { if (cur && cur.items.includes(r)) return cur; return Object.values(db.cases).find((c) => c.items.includes(r)) || cur; }
-  const SEEN = {};   // カメラ・写真で同じ文字列を見た時刻（かざしたままの連続読みや、1 枚の写真に同じラベルが 2 枚写ったのを 2 本と数えない）
+  const SEEN = {};   // カメラ・写真で同じ文字列を見た時刻（かざしたままの連続読みや、同じラベルに戻ってきた読み直し、1 枚の写真に同じラベルが 2 枚写ったのを 2 本と数えない）
+  const CAM_REPEAT_MS = MERGE_SEC * 1000;   // 2026-11-19: 6 秒 → 90 秒。カメラで同じラベルを読み直しても足さない（2 本目は画面の「2本目として登録」で足す）
+  let camRepeat = false;   // 直前の addScan0 が「カメラの読み直し（足さない）」だった
   // 製品の型番だけのバーコードを患者ID と取り違えて、読み取り中に別の症例を始めてしまうのを防ぐ（英字入りのときだけ聞く。数字だけの患者ID は今までどおり）
   function askPid(t) {
     const el = $("#pidAsk"); if (!el) { setPid(t); return; }
@@ -773,8 +776,8 @@
     const items = cur.items; const last = items[items.length - 1];
     const within = (a) => a && (Date.now() - new Date(a.at).getTime()) / 1000 <= MERGE_SEC;
     // deliberate＝人が 1 回ずつ読ませた読み取り（リーダー・手入力・貼り付け）。カメラ・写真は同じ文字列を 6 秒以内に見ていたら、かざしたままの読み直しとみなす
-    const camLike = ev.src === "cam" || ev.src === "photo"; let deliberate = true;
-    if (camLike) { const k = String(text), pv = SEEN[k]; SEEN[k] = Date.now(); if (pv && Date.now() - pv < 6000) deliberate = false; }
+    const camLike = ev.src === "cam" || ev.src === "photo"; let deliberate = true; camRepeat = false;
+    if (camLike) { const k = String(text), pv = SEEN[k]; SEEN[k] = Date.now(); if (pv && !ev.force && Date.now() - pv < CAM_REPEAT_MS) deliberate = false; }
     const complete = (x) => !!(x && x.gtin && (x.lot || x.serial));
     // 別のバーコードの内容を行に足したとき、その読み取りの注意・要確認・候補も一緒に持っていく。byTime＝時刻が近いというだけで足した（同じ箱かは人が確かめる）
     const carry = (dst, tookLot, byTime) => { if (byTime) dst.merged = true; dst.warn = dst.warn || []; (r.warn || []).forEach((w) => { if (!dst.warn.includes(w)) dst.warn.push(w); }); if (r.q === "check") dst.q = "check"; if (tookLot && r.alts) dst.alts = r.alts; };
@@ -785,7 +788,7 @@
       // 無視するのはカメラ・写真で同じ文字列を見続けているときだけ（人が読ませた 1 回ではない）
       const sameAs = (x) => within(x) && ((r.lot && x.lot === r.lot) || (r.serial && x.serial === r.serial) || (r.ref && !r.lot && !r.serial && x === last && x.ref === r.ref));
       const again = [...items].reverse().find(sameAs) || null;
-      if (again && !deliberate) { if (!quiet) log("カメラが同じバーコードを見続けています（行は足しません）: " + text); return again; }
+      if (again && !deliberate) { camRepeat = true; if (!quiet) log("同じバーコードの読み直し（登録済み・行は足しません）: " + text); return again; }
       const lastOpen = !!last && !last.lot && !last.serial;   // 直前の行が LOT もシリアルも持っていない（＝続きのバーコードを待っている）
       const idCode = !!(r.lot || r.serial);                    // LOT かシリアルを運ぶバーコード
       const againOther = !!(again && idCode && (!last || !last.gtin || last.gtin !== again.gtin));   // 読み直した LOT は前の別の製品のもの → 待っている行には付けない
@@ -829,7 +832,7 @@
       if ((r.lot && !dup.lot) || (r.expiry && !dup.expiry)) carry(dup, !!(r.lot && !dup.lot), false);
       if (r.lot && !dup.lot) { dup.lot = r.lot; changed = true; } if (r.expiry && !dup.expiry) { dup.expiry = r.expiry; dup.expiryRaw = r.expiryRaw; changed = true; } if (r.ref && !dup.ref) { dup.ref = r.ref; changed = true; } if (r.serial && !dup.serial) { dup.serial = r.serial; changed = true; }
       if (dup.refResolved) { dup.refResolved = false; dup.gtin = r.gtin; dup.packLevel = r.packLevel; dup.packQty = r.packQty; changed = true; }
-      if (changed) { dup.raw += " | " + text; save(); render(); if (!quiet) log("同じ製品の分割バーコードを統合: " + r.gtin); } else if (!quiet) log("同じ製品の再読み取り（無視）: " + r.gtin);
+      if (changed) { dup.raw += " | " + text; save(); render(); if (!quiet) log("同じ製品の分割バーコードを統合: " + r.gtin); } else { if (camLike) camRepeat = true; if (!quiet) log("同じ製品の再読み取り（無視）: " + r.gtin); }
       return dup;
     }
     const m = lookup(r.jan); r.master = m ? "○" : "×"; if (m) applyMaster(r, m);
@@ -1004,7 +1007,7 @@
     if (twinOf(r, caseOf(r)) >= 0) n.push(r.twinOk ? ["同じLOTを複数本使用（確認済）", "ok"] : ["同じLOTの2本目？（保存前に確認）", "warn"]);
     if (r.verified) n.push(["目視確定", "ok"]);
     if (r.merged) n.push(["分割バーコードを統合（箱で確認）", "warn"]);
-    if (r.paired) n.push(["写真で隣り合う2本を組に", "ok"]);
+    if (r.paired) n.push(["隣り合う2本を位置で組に", "ok"]);
     if (r.byTpl) n.push(["覚えた型で分割（区切りなしのリーダー）", "ok"]);
     if (siteKind(r) && siteMaster() && !hasSite(r)) n.push([validLesions().length ? "部位未選択" : "治療対象未入力", "warn"]);
     if (!r.gtin) n.push(["製品バーコード(01)待ち", "bad"]);
@@ -1198,8 +1201,9 @@
       cam.frames = (cam.frames || 0) + 1; const t0 = performance.now();
       const img = grab(src, cam.frames); if (!img) return [];
       let out = [];
-      if (mod) { const id = wg.getImageData(0, 0, img.width, img.height); const rs = await mod.readBarcodes(id, { formats: ZX_FORMATS, tryHarder: true, maxNumberOfSymbols: 4 }); out = rs.map((r) => r.text); }
-      if (!out.length && native && cam.nativeErr < 3) { try { out = (await native.detect(img)).map((b) => b.rawValue); } catch (e) { cam.nativeErr++; cam.lastErr = "BarcodeDetector: " + (e && e.message || e); } }
+      // 2026-11-19: 文字列だけでなく形式と四隅の位置も返す（同じコマの中で製品と LOT を位置で組にするため）
+      if (mod) { const id = wg.getImageData(0, 0, img.width, img.height); const rs = await mod.readBarcodes(id, { formats: ZX_FORMATS, tryHarder: true, maxNumberOfSymbols: 6 }); out = rs.map((r) => ({ text: r.text, format: r.format || "", corners: r.position ? [r.position.topLeft, r.position.topRight, r.position.bottomRight, r.position.bottomLeft] : null })); }
+      if (!out.length && native && cam.nativeErr < 3) { try { out = (await native.detect(img)).map((b) => ({ text: b.rawValue, format: b.format || "", corners: b.cornerPoints || null })); } catch (e) { cam.nativeErr++; cam.lastErr = "BarcodeDetector: " + (e && e.message || e); } }
       cam.ms = Math.round(performance.now() - t0);
       if (cam.frames % 4 === 0) $("#camLive").textContent = cam.engine + " 解析 " + cam.frames + " 回 " + cam.ms + "ms " + img.width + "x" + img.height;
       return out;
@@ -1245,7 +1249,7 @@
       $("#camMsg").textContent = "バーコードを枠に入れ、15〜20cm 離してピントが合うまで待ってください（近すぎるとぼやけます。寄せたい時は 🔍 ズーム）"; $("#camLive").textContent = "起動中 " + cam.camInfo; cam.frames = 0;
       setTimeout(() => { if (cam.stream && v.readyState < 2) showFail("カメラは許可されましたが映像が届きません。他のカメラアプリを閉じるか、下のボタンで端末のカメラで撮影してください。"); }, 15000);
       let busy = false;
-      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { const texts = await read(v); for (const t of texts) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t); } } } catch (e) { cam.lastErr = "解析: " + (e && e.message || e); $("#camLive").textContent = cam.lastErr; } busy = false; }, 200);
+      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { camFrame(await read(v)); } catch (e) { cam.lastErr = "解析: " + (e && e.message || e); $("#camLive").textContent = cam.lastErr; } busy = false; }, 200);
     } catch (e) { const msg = camErrText(e); showFail(msg); log("カメラ: " + msg); }
   }
   function showFail(msg) { closeStream(); cam.lastErr = msg; $("#camMsg").textContent = ""; $("#camFailMsg").textContent = msg; $("#camFail").style.display = "block"; $("#diag").textContent = "診断: " + msg; }
@@ -1379,11 +1383,60 @@
   function diagText() { return ["版 " + VERSION, "診断: " + (cam.diagBase || ""), cam.engine ? "エンジン: " + cam.engine : "", cam.camInfo ? "カメラ: " + cam.camInfo : "", cam.frames ? "解析 " + cam.frames + " 回 " + (cam.ms || 0) + "ms" : "", cam.loadErr || "", cam.lastErr || "", "UA: " + UA].filter(Boolean).join("\n"); }
   $("#btnDiag").onclick = async () => { const s = diagText(); try { await navigator.clipboard.writeText(s); log("診断をコピーしました。LINE やメールに貼り付けて送ってください"); } catch (e) { log(s.replace(/\n/g, " ／ ")); } };
   function setMode(m) { cam.mode = m; $("#btnMode").textContent = m === "device" ? "🎯 デバイス" : "🪪 患者ID"; $("#btnOcr").style.display = m === "pid" ? "inline-flex" : "none"; $("#ocrBox").innerHTML = ""; $("#camMsg").textContent = m === "device" ? "枠内にデバイスのバーコードを入れてください" : "枠内に患者IDのバーコード（または数字）を入れてください"; }
-  function hit(t) {
+  // 1 コマぶんの解読結果をまとめて扱う（2026-11-19。販売店の台紙のように複数のラベルが写ると、隣のラベルの LOT が前の製品に付いていた＝読取ログ 2026-11-19 で発覚）
+  //  ①同じ文字列が 2 コマ続けて読めたものだけ採る（1 コマだけの読み違い (16)290591・C$2B・偽の EAN-13 を捨てる。200ms に 1 コマなので遅れはほぼ無い）
+  //  ②同じコマの中で、製品 (01) だけのバーコードと LOT／シリアルだけのバーコードを位置の近さで組にして 1 本の文字列で入れる（写真と同じ基準: 中心間が横幅の 0.6 倍以内）
+  //  ③製品が写っているコマで組にならなかった LOT だけのバーコードは入れない（別のラベルのもの）。製品が 1 つも写っていないコマなら今までどおり仮の行で受ける
+  //  ④EAN-13／EAN-8／UPC で辞書に無い番号は、デバイス読みでは入れない（密なバーコードの誤読で出る偽の番号 4401083238612 など。患者ID は「患者ID」モードで読む）
+  const STAB_MS = 1500;
+  const hriOf = (p) => p.elements.map((e) => "(" + e.ai + ")" + e.value).join("");
+  function camNote(key, msg) { cam.noted = cam.noted || {}; const t = Date.now(); if (cam.noted[key] && t - cam.noted[key] < 10000) return; cam.noted[key] = t; $("#camLive").textContent = msg; log(msg); }
+  function camFrame(rs) {
+    const now = Date.now(); const stab = cam.stab = cam.stab || {};
+    for (const k of Object.keys(stab)) if (now - stab[k].at > STAB_MS) delete stab[k];
+    const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y); const items = []; const seen = new Set();
+    for (const r of rs || []) {
+      const text = r && (typeof r === "string" ? r : r.text); if (!text || seen.has(text)) continue; seen.add(text);
+      const sv = stab[text]; stab[text] = { n: (sv ? sv.n : 0) + 1, at: now }; if (!sv) continue;   // 初見は次のコマで確かめる
+      if (cam.mode === "pid") { hitOnce(text); continue; }
+      const q = (r && r.corners) || []; const geo = q.length === 4 && q.every((pt) => pt && isFinite(pt.x) && isFinite(pt.y));
+      const p = GS1.parse(text), a = p.ok ? p.ai : {};
+      items.push({ text, p, ean: /^(EAN-13|EAN-8|UPC-A|UPC-E|ean_13|ean_8|upc_a|upc_e)$/i.test((r && r.format) || ""), geo,
+        cx: geo ? (q[0].x + q[1].x + q[2].x + q[3].x) / 4 : 0, cy: geo ? (q[0].y + q[1].y + q[2].y + q[3].y) / 4 : 0, ww: geo ? Math.max(D(q[0], q[1]), D(q[0], q[3])) : 0,
+        kind: a["01"] ? (a["10"] || a["21"] ? "full" : "gtin") : (a["10"] || a["21"] || a["17"] ? "lone" : "other") });
+    }
+    if (!items.length) return;
+    const cand = [];
+    for (const g of items) if (g.kind === "gtin" && g.geo) for (const l of items) if (l.kind === "lone" && l.geo) { const d = D({ x: g.cx, y: g.cy }, { x: l.cx, y: l.cy }); if (d <= 0.6 * Math.max(g.ww, l.ww)) cand.push({ g, l, d }); }
+    cand.sort((x, y) => x.d - y.d); for (const c of cand) { if (c.g.mate || c.l.mate) continue; c.g.mate = c.l; c.l.mate = c.g; }
+    const hasProd = items.some((it) => it.kind === "gtin" || it.kind === "full");
+    items.sort((x, y) => (x.cy - y.cy) || (x.cx - y.cx));
+    for (const it of items) {
+      if (it.kind === "gtin" && it.mate) { hitOnce(hriOf(it.p) + hriOf(it.mate.p), { pair: [it.text, it.mate.text] }); continue; }
+      if (it.kind === "lone") {
+        if (it.mate) continue;
+        if (hasProd) { camNote("lone:" + it.text, "別のラベルの LOT／シリアル " + (it.p.ai["10"] || it.p.ai["21"] || it.text) + " は入れていません（持ち主の製品バーコードと同じ枠に入れてください）"); continue; }
+        hitOnce(it.text); continue;
+      }
+      if (it.kind === "other" && it.ean) {   // EAN/UPC は辞書にある製品だけ採る（チェックディジットが合うだけでは採らない: 偽の 13 桁は検査数字も合ってしまう）
+        const g = resolveBareProduct(it.text.trim()), jan = g ? GS1.gtinToJan(GS1.unitGtin(g)) : "";
+        if (!g || !(lookup(jan) || lookup(GS1.gtinToJan(g)))) { camNote("ean:" + it.text, "辞書に無い番号 " + it.text + " は入れていません（密なバーコードの読み違いで出る番号です）"); continue; } }
+      hitOnce(it.text);
+    }
+  }
+  function hitOnce(t, ev) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t, ev); } }
+  function hit(t, ev) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
     const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
-    const r = addScan(t, false, { src: "cam" }); const el = $("#camHit");
+    const r = addScan(t, false, { src: "cam", force: !!(ev && ev.force) }); const el = $("#camHit");
+    if (ev && ev.force && r && r.gtin && !r.twinOk && twinOf(r) >= 0) { r.twinOk = true; save(); render(); log("2 本目として登録（画面で確認済み）: " + (r.name || r.jan) + " LOT " + (r.lot || "—")); }
+    if (ev && ev.pair && r && r.gtin && !camRepeat) { r.paired = true; r.raw = ev.pair.join(" | "); save(); render(); }
+    if (camRepeat && r && !(ev && ev.force)) {   // 同じラベルの読み直し（90 秒以内）: 足さずに知らせる。2 本目ならボタンで足す
+      el.textContent = "登録済み：" + (r.name || r.jan || "LOT " + (r.lot || r.serial || "")) + (r.gtin ? "  LOT " + (r.lot || "—") : "");
+      // 2 本目: 登録済みの行の内容（製品＋期限＋LOT＋シリアル）を 1 本の文字列にして足す（押した人が「2 本使った」と決めたので、保存前の確認は済みにする）
+      if (r.gtin && (r.lot || r.serial)) { const b = document.createElement("button"); b.type = "button"; b.textContent = "同じ LOT をもう 1 本使った → 2本目として登録"; b.onclick = (e) => { e.stopPropagation(); hit(GS1.compose(r), { force: true }); }; el.appendChild(b); }
+      el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 6000); return; }
     if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t), t))) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
     // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
     const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
@@ -1584,7 +1637,7 @@
   $("#btnAllCsv").onclick = () => exportGate(Object.values(db.cases), "btnAllCsv") && download("AliceScan_全症例_" + today() + ".csv", csv(Object.values(db.cases).flatMap(rows)), "text/csv");
   // 症例を開いたまま手技を選び直したら、その症例の手技を変える（鍵・ファイル名も付け直す）
   $("#cProc").onchange = () => { if (cur && $("#cProc").value !== cur.proc) { setProc($("#cProc").value, true); render(); } };
-  if (new URLSearchParams(location.search).get("selftest") === "1") setTimeout(() => $("#btnSelfTest").click(), 300);
+  if (new URLSearchParams(location.search).get("selftest") === "1") { setTimeout(() => $("#btnSelfTest").click(), 300); window.__dbg = { addScan: addScan, hit: hit, camFrame: camFrame }; }   // 自己テスト時だけ、ブラウザの検証からカメラ経路を呼べるようにする
   // 自己テスト: 手技ごとのサンプル（公開辞書にある JAN。LOT・期限は架空）。各セットを「TEST-手技」の症例として流し、手技の自動判定・部位・CSV の流れを確かめる
   const gs = (jan, exp, lot) => "(01)" + String(jan).padStart(14, "0") + "(17)" + exp + "(10)" + lot;
   const SELF = {
