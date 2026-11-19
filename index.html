@@ -127,6 +127,13 @@
   #cam .fail, #cam .fail div { color:#F2F5FB; }
   #cam video { width:100%; height:100%; object-fit:cover; }
   #cam .frame { position:absolute; left:50%; top:45%; width:min(82vw, 560px); height:min(36vh, 300px); transform:translate(-50%,-50%); border:2px solid var(--cyan); border-radius:18px; box-shadow:0 0 0 9999px rgba(0,0,0,.45); }
+  /* 2026-11-19.8: どのバーコードを読んだかを、映像の上で太い枠で囲んで示す（先生「どれが読まれたのか分かりづらい」） */
+  #cam .mark { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:1; overflow:visible; }
+  #cam .mark polygon { fill:rgba(29,185,84,.22); stroke:#1DB954; stroke-width:5; stroke-linejoin:round; }
+  #cam .mark.s-part polygon, #cam .mark.s-chk polygon { fill:rgba(245,184,0,.22); stroke:#F5B800; }
+  #cam .mark.s-same polygon { fill:rgba(255,255,255,.18); stroke:#fff; }
+  #cam .mark.s-bad polygon { fill:rgba(224,65,79,.2); stroke:#E0414F; }
+  #cam .mark text { fill:#fff; font-size:15px; font-weight:800; paint-order:stroke; stroke:rgba(0,0,0,.75); stroke-width:4px; }
   #cam .frame::after { content:""; position:absolute; left:6%; right:6%; top:50%; height:2px; background:var(--cyan); box-shadow:0 0 14px var(--cyan); animation:line 1.6s ease-in-out infinite alternate; }
   @keyframes line { from { transform:translateY(-70px) } to { transform:translateY(70px) } }
   #cam .bar { position:absolute; left:0; right:0; bottom:0; padding:18px 20px calc(18px + env(safe-area-inset-bottom)); display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:linear-gradient(transparent, rgba(7,11,20,.9)); }
@@ -333,6 +340,7 @@
 <div id="cam">
   <video id="video" playsinline muted autoplay></video>
   <div class="frame"></div>
+  <svg class="mark" id="camMark"></svg>
   <div class="msg" id="camMsg">カメラを起動しています…</div>
   <div class="hit" id="camHit"></div>
   <div class="live" id="camLive"></div>
@@ -380,7 +388,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-19.7";
+  const VERSION = "2026-11-19.8";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -1620,20 +1628,22 @@
     // 直前 1.5 秒以内（= まだ枠に見えている）に、製品だけ／LOT だけの読みがあったか。無ければ、前後の行とはつながない（ev.noPend）
     const recent = (kind, it) => Object.values(stab).some(k => k.kind === kind && now - k.at <= STAB_MS && k.tracked && photoNear(k.tracked, { corners: (it.corners || []).map(pt => cam.crop ? { x: cam.crop.sx + pt.x / cam.crop.k, y: cam.crop.sy + pt.y / cam.crop.k } : pt) }));
     pairPhotoItems(items);
+    const vbox = (it) => it && it.geo ? (it.corners || []).map(pt => cam.crop ? { x: cam.crop.sx + pt.x / cam.crop.k, y: cam.crop.sy + pt.y / cam.crop.k } : pt) : null;
+    const boxes = (...xs) => xs.map(vbox).filter(Boolean);
     const hasProd = items.some((it) => it.kind === "gtin" || it.kind === "full");
     items.sort((x, y) => (x.cy - y.cy) || (x.cx - y.cx));
     for (const it of items) {
-      if (it.kind === "gtin" && it.mate) { hitOnce(hriOf(it.p) + hriOf(it.mate.p), { pair: [it.text, it.mate.text], amb: it.amb || it.mate.amb }); continue; }
+      if (it.kind === "gtin" && it.mate) { hitOnce(hriOf(it.p) + hriOf(it.mate.p), { pair: [it.text, it.mate.text], amb: it.amb || it.mate.amb, boxes: boxes(it, it.mate) }); continue; }
       if (it.kind === "lone") {
         if (it.mate) continue;
         if (hasProd) { camNote("lone:" + it.text, "別のラベルの LOT／シリアル " + (it.p.ai["10"] || it.p.ai["21"] || it.text) + " は入れていません（持ち主の製品バーコードと同じ枠に入れてください）"); continue; }
-        hitOnce(it.text, { noPend: !recent("gtin", it), amb: it.amb }); continue;
+        hitOnce(it.text, { noPend: !recent("gtin", it), amb: it.amb, boxes: boxes(it) }); continue;
       }
-      if (it.kind === "gtin") { hitOnce(it.text, { noPend: !recent("lone", it), amb: it.amb }); continue; }
+      if (it.kind === "gtin") { hitOnce(it.text, { noPend: !recent("lone", it), amb: it.amb, boxes: boxes(it) }); continue; }
       if (it.kind === "other" && it.ean) {   // EAN/UPC は辞書にある製品だけ採る（チェックディジットが合うだけでは採らない: 偽の 13 桁は検査数字も合ってしまう）
         const g = resolveBareProduct(it.text.trim()), jan = g ? GS1.gtinToJan(GS1.unitGtin(g)) : "";
         if (!g || !(lookup(jan) || lookup(GS1.gtinToJan(g)))) { camNote("ean:" + it.text, "辞書に無い番号 " + it.text + " は入れていません（密なバーコードの読み違いで出る番号です）"); continue; } }
-      hitOnce(it.text);
+      hitOnce(it.text, { boxes: boxes(it) });
     }
   }
   const HOLD_MS = 1500;   // 登録の表示が出たら 1.5 秒は次を読まない（2026-11-19.7 先生「反応が速すぎてすぐ 2 つ読んだことになる」）
@@ -1642,6 +1652,7 @@
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
     const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
+    cam.markBoxes = (ev && ev.boxes) || null;
     const r = addScan(t, false, { src: "cam", force: !!(ev && ev.force), noPend: !!(ev && ev.noPend), amb: !!(ev && ev.amb) }); const el = $("#camHit");
     if (ev && ev.force && r && r.gtin && !r.twinOk && twinOf(r) >= 0) { r.twinOk = true; save(); render(); log("2 本目として登録（画面で確認済み）: " + (r.name || r.jan) + " LOT " + (r.lot || "—")); }
     if (ev && ev.pair && r && r.gtin && !camRepeat) { r.paired = true; r.raw = ev.pair.join(" | "); save(); render(); }
@@ -1671,14 +1682,36 @@
     el.innerHTML = '<div class="st">' + esc(title) + "</div>" + (name ? '<div class="nm">' + esc(name) + "</div>" : "") + (detail ? '<div class="dt">' + esc(detail) + "</div>" : "");
     if (btn) el.appendChild(btn);
     const fr = $("#cam .frame"); fr.className = "frame s-" + state;
-    clearTimeout(cam.hitT); cam.hitT = setTimeout(() => { el.classList.remove("show"); fr.className = "frame"; }, ms || 3000);
+    const mk = drawMark(state, cam.markBoxes); cam.markBoxes = null;
+    clearTimeout(cam.hitT); cam.hitT = setTimeout(() => { el.classList.remove("show"); fr.className = "frame"; if (mk) mk.innerHTML = ""; }, ms || 3000);
     camCount();
+  }
+  // 読んだバーコードを映像の上で囲む。四隅は映像の座標 → 画面の座標（object-fit:cover の拡大と切れ端を戻す）
+  // 1 次元バーコードの位置は「読んだ線」だけで高さが無いことが多いので、バーの向きに沿った長方形（太さは長さの 0.18 倍以上。台紙では隣のバーコードと重ならない細さ）に広げて描く
+  function drawMark(state, bxs) {
+    const svg = $("#camMark"); if (!svg) return null; svg.innerHTML = ""; svg.setAttribute("class", "mark s-" + state);
+    const v = $("#video"), vw = v.videoWidth, vh = v.videoHeight; if (!bxs || !bxs.length || !vw || !vh) return svg;
+    const vr = v.getBoundingClientRect(), cr = $("#cam").getBoundingClientRect();
+    const sc = Math.max(vr.width / vw, vr.height / vh), ox = vr.left - cr.left + (vr.width - vw * sc) / 2, oy = vr.top - cr.top + (vr.height - vh * sc) / 2;
+    const S = (pt) => ({ x: ox + pt.x * sc, y: oy + pt.y * sc });
+    let html = "";
+    bxs.forEach((q, i) => {
+      if (!q || q.length !== 4) return; const [a, b, c, d] = q.map(S);
+      const cx = (a.x + b.x + c.x + d.x) / 4, cy = (a.y + b.y + c.y + d.y) / 4;
+      let ux = ((b.x - a.x) + (c.x - d.x)) / 2, uy = ((b.y - a.y) + (c.y - d.y)) / 2; const L = Math.hypot(ux, uy) || 1; ux /= L; uy /= L;   // バーを横切る向き
+      const H = Math.max((Math.hypot(d.x - a.x, d.y - a.y) + Math.hypot(c.x - b.x, c.y - b.y)) / 2, 0.18 * L);
+      const hl = L / 2 + 10, hh = H / 2 + 5, nx = -uy, ny = ux;
+      const P = [[-hl, -hh], [hl, -hh], [hl, hh], [-hl, hh]].map(([s1, s2]) => (cx + ux * s1 + nx * s2).toFixed(1) + "," + (cy + uy * s1 + ny * s2).toFixed(1)).join(" ");
+      html += '<polygon points="' + P + '"/>';
+      if (bxs.length > 1) html += '<text x="' + (cx - 6).toFixed(1) + '" y="' + (cy + 6).toFixed(1) + '">' + (i + 1) + "</text>";
+    });
+    svg.innerHTML = html; return svg;
   }
   function camCount() { const el = $("#camCnt"); if (!el) return; el.textContent = cur ? "登録 " + cur.items.length + " 本" + (cur.items.some((x) => !x.gtin || (!x.lot && !x.serial)) ? "（未完 " + cur.items.filter((x) => !x.gtin || (!x.lot && !x.serial)).length + "）" : "") : ""; }
   function toneOk() { tone(1320, 70); tone(1760, 110, .08); }   // 登録: 上がる 2 音
   function tonePart() { tone(880, 120); }                         // あと 1 本: 低い 1 音
   function toneBad() { tone(220, 220); }                          // 読めない: さらに低い 1 音
-  function closeCam() { clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
+  function closeCam() { try { $("#camMark").innerHTML = ""; } catch (e) {} clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
   function beep() { tone(1760, 90); }
   $("#btnCam").onclick = () => { audioUnlock(); openCam(); }; $("#btnCamClose").onclick = closeCam;
   $("#btnMode").onclick = () => setMode(cam.mode === "device" ? "pid" : "device");
