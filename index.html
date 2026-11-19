@@ -135,7 +135,17 @@
   #cam .fail h3 { margin:0 0 8px; color:#FF8A98; font-size:18px; }
   #cam .fail .row { margin-top:14px; }
   #cam .hit { position:absolute; left:50%; top:calc(92px + env(safe-area-inset-top)); transform:translateX(-50%); background:var(--cyan); color:var(--accent-ink); padding:10px 18px; border-radius:22px; font-weight:700; max-width:90vw; text-align:center; opacity:0; transition:opacity .2s; z-index:3; line-height:1.5; }
-  #cam .hit button { display:block; margin:8px auto 0; font:inherit; font-size:14px; padding:6px 14px; border-radius:14px; border:1px solid var(--accent-ink); background:var(--accent-ink); color:var(--cyan); }
+  #cam .hit button { display:block; margin:8px auto 0; font:inherit; font-size:14px; padding:6px 14px; border-radius:14px; border:1px solid currentColor; background:transparent; color:inherit; }
+  /* 読めたかどうかが一目で分かるように（2026-11-19 先生「読み取れたかどうかが分かりにくい」）: 大きな状態行＋品名＋LOT、色は 緑＝登録した／黄＝あと 1 本／白＝登録済み（足していない）／赤＝読めない */
+  #cam .hit { text-align:left; min-width:min(86vw, 520px); padding:12px 18px; border-radius:16px; }
+  #cam .hit .st { font-size:22px; font-weight:800; line-height:1.3; }
+  #cam .hit .nm { font-size:15px; font-weight:600; margin-top:4px; }
+  #cam .hit .dt { font-size:13px; font-family:var(--mono); font-weight:500; margin-top:2px; opacity:.92; white-space:normal; }
+  #cam .hit.s-ok { background:#1DB954; color:#fff; } #cam .hit.s-part { background:#F5B800; color:#1a1400; } #cam .hit.s-same { background:rgba(255,255,255,.94); color:#222; } #cam .hit.s-bad { background:#E0414F; color:#fff; } #cam .hit.s-chk { background:#F08A24; color:#fff; }
+  #cam .frame.s-ok { border-color:#1DB954; box-shadow:0 0 0 9999px rgba(0,0,0,.45), 0 0 0 5px rgba(29,185,84,.55); } #cam .frame.s-part, #cam .frame.s-chk { border-color:#F5B800; box-shadow:0 0 0 9999px rgba(0,0,0,.45), 0 0 0 5px rgba(245,184,0,.5); } #cam .frame.s-bad { border-color:#E0414F; box-shadow:0 0 0 9999px rgba(0,0,0,.45), 0 0 0 5px rgba(224,65,79,.5); }
+  #cam .frame.s-ok::after, #cam .frame.s-part::after, #cam .frame.s-chk::after, #cam .frame.s-bad::after { display:none; }
+  #cam .cnt { position:absolute; right:12px; top:calc(10px + env(safe-area-inset-top)); z-index:3; background:rgba(255,255,255,.16); color:#fff; border-radius:14px; padding:5px 11px; font-size:13px; font-weight:700; }
+  #cam .msg { padding-right:110px; padding-left:16px; text-align:left; }
   #cam .hit.show { opacity:1; }
   #cam .live { position:absolute; left:0; right:0; top:calc(66px + env(safe-area-inset-top)); text-align:center; font-family:var(--mono); font-size:11px; color:var(--muted); pointer-events:none; padding:0 16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #cam .ocr { position:absolute; left:50%; bottom:170px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:92vw; }
@@ -326,6 +336,7 @@
   <div class="msg" id="camMsg">カメラを起動しています…</div>
   <div class="hit" id="camHit"></div>
   <div class="live" id="camLive"></div>
+  <div class="cnt" id="camCnt"></div>
   <div class="fail" id="camFail"><h3>カメラを開けませんでした</h3><div id="camFailMsg"></div><div class="row"><button class="btn primary" id="btnFailPhoto">📸 端末のカメラで撮影して読む</button><button class="btn" id="btnFailClose">閉じる</button></div></div>
   <div class="ocr" id="ocrBox"></div>
   <div class="bar">
@@ -368,7 +379,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-19.3";
+  const VERSION = "2026-11-19.5";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -777,7 +788,8 @@
     const within = (a) => a && (Date.now() - new Date(a.at).getTime()) / 1000 <= MERGE_SEC;
     // deliberate＝人が 1 回ずつ読ませた読み取り（リーダー・手入力・貼り付け）。カメラ・写真は同じ文字列を 6 秒以内に見ていたら、かざしたままの読み直しとみなす
     const camLike = ev.src === "cam" || ev.src === "photo"; let deliberate = true; camRepeat = false;
-    if (camLike) { const k = String(text), pv = SEEN[k]; SEEN[k] = Date.now(); if (pv && !ev.force && Date.now() - pv < CAM_REPEAT_MS) deliberate = false; }
+    if (camLike) {   // 2026-11-19.4: 鍵は中身。zxing の HRI と BarcodeDetector の生の並びが同じバーコードでも別の文字列になり、二重に登録されていた
+      const k = [r.gtin, r.expiryRaw, r.lot, r.serial, r.ref].join("|"), pv = SEEN[k]; SEEN[k] = Date.now(); if (pv && !ev.force && Date.now() - pv < CAM_REPEAT_MS) deliberate = false; }
     const complete = (x) => !!(x && x.gtin && (x.lot || x.serial));
     // 別のバーコードの内容を行に足したとき、その読み取りの注意・要確認・候補も一緒に持っていく。byTime＝時刻が近いというだけで足した（同じ箱かは人が確かめる）
     const carry = (dst, tookLot, byTime) => { if (byTime) dst.merged = true; dst.warn = dst.warn || []; (r.warn || []).forEach((w) => { if (!dst.warn.includes(w)) dst.warn.push(w); }); if (r.q === "check") dst.q = "check"; if (tookLot && r.alts) dst.alts = r.alts; };
@@ -792,7 +804,7 @@
       const lastOpen = !!last && !last.lot && !last.serial;   // 直前の行が LOT もシリアルも持っていない（＝続きのバーコードを待っている）
       const idCode = !!(r.lot || r.serial);                    // LOT かシリアルを運ぶバーコード
       const againOther = !!(again && idCode && (!last || !last.gtin || last.gtin !== again.gtin));   // 読み直した LOT は前の別の製品のもの → 待っている行には付けない
-      if (within(last) && !refOther && !againOther && (idCode ? lastOpen : ((r.ref && !last.ref) || (r.expiry && !last.expiry)))) {
+      if (within(last) && !ev.noPend && !refOther && !againOther && (idCode ? lastOpen : ((r.ref && !last.ref) || (r.expiry && !last.expiry)))) {
         carry(last, !!r.lot, true);
         if (r.lot) last.lot = r.lot; if (r.ref && !last.ref) last.ref = r.ref; if (r.serial) last.serial = r.serial; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; }
         if (!last.gtin && r.ref) { const jr2 = byRef(r.ref); if (jr2) { last.jan = jr2; last.gtin = jr2.padStart(14, "0"); last.refResolved = true; last.pending = false; const m3 = lookup(jr2); last.master = m3 ? "○" : "×"; if (m3) applyMaster(last, m3); } }   // LOT だけの行に REF が来たら製品が決まる
@@ -814,7 +826,7 @@
     // 直前が「製品バーコード待ち」の行なら、その行に GTIN を入れて完成させる
     const clash = !!last && !last.gtin && !!((last.lot && (r.lot ? r.lot !== last.lot : !!r.serial)) || (last.serial && (r.serial ? r.serial !== last.serial : !!r.lot)));
     if (clash && within(last) && !quiet) log("直前に読んだ " + (last.lot ? "LOT " + last.lot : "シリアル " + last.serial) + " は、この製品のものではありません（この製品のバーコードは 1 本で完結）。持ち主の (01) 付きバーコードを読んでください");
-    if (last && !last.gtin && within(last) && !clash) {
+    if (last && !last.gtin && within(last) && !clash && !ev.noPend) {
       last.gtin = r.gtin; last.jan = r.jan; last.packLevel = r.packLevel; last.packQty = r.packQty; last.pending = false; last.gtinValid = r.gtinValid;
       carry(last, !!(r.lot && !last.lot), true);
       if (r.lot && !last.lot) last.lot = r.lot; if (r.expiry && !last.expiry) { last.expiry = r.expiry; last.expiryRaw = r.expiryRaw; } if (r.ref && !last.ref) last.ref = r.ref; if (r.serial && !last.serial) last.serial = r.serial;
@@ -826,7 +838,7 @@
     }
     const dup = [...items].reverse().find((x) => x.gtin === r.gtin && within(x) && (!x.lot || !r.lot || x.lot === r.lot) && !(x.serial && r.serial && x.serial !== r.serial));
     // 同じ製品・同じ LOT を、足す情報の無いまま読み直した: 以前は無視していたが、同じサイズの 2 本目かもしれないので行を足す（保存前に確認）
-    const twinNew = !!(dup && deliberate && complete(dup) && (r.lot ? dup.lot === r.lot : !r.serial) &&!dup.refResolved && !(r.expiry && !dup.expiry) && !(r.serial && !dup.serial) && !(r.ref && !dup.ref));
+    const twinNew = !!(dup && deliberate && !(camLike && !ev.force) && complete(dup) && (r.lot ? dup.lot === r.lot : !r.serial) &&!dup.refResolved && !(r.expiry && !dup.expiry) && !(r.serial && !dup.serial) && !(r.ref && !dup.ref));
     if (dup && !twinNew) {
       let changed = false;
       if ((r.lot && !dup.lot) || (r.expiry && !dup.expiry)) carry(dup, !!(r.lot && !dup.lot), false);
@@ -1184,6 +1196,7 @@
     let r = (n % 2 === 0) ? null : frameRect(v, 0.2);
     if (!r) r = { sx: 0, sy: 0, sw: vw, sh: vh };
     const k = Math.min(1, 2200 / Math.max(r.sw, r.sh)); // カメラ映像（1080p 以下）は縮小しない
+    cam.crop = { sx: r.sx, sy: r.sy, k };
     work.width = Math.round(r.sw * k); work.height = Math.round(r.sh * k); if (!(work.width > 0 && work.height > 0)) return null;
     wg.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, work.width, work.height);
     return work;
@@ -1232,7 +1245,7 @@
     throw err || new Error("unknown");
   }
   async function openCam() {
-    clearTimeout(cam.closeT); cam.closeT = null; $("#cam").style.display = "block"; $("#camFail").style.display = "none"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = "";
+    clearTimeout(cam.closeT); cam.closeT = null; $("#cam").style.display = "block"; $("#camFail").style.display = "none"; $("#camMsg").textContent = "カメラを起動しています…"; $("#ocrBox").innerHTML = ""; try { camCount(); } catch (e) {}
     if (!window.isSecureContext) { showFail("このページは https ではないためブラウザのカメラを使えません。"); return; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showFail(inApp ? "LINE・メール・Facebook などのアプリ内ブラウザではブラウザのカメラが使えません。右上メニューの「Chrome で開く」「Safari で開く」で開き直すか、下のボタンで端末のカメラで撮影してください。" : "このブラウザではカメラAPIが使えません。下のボタンで端末のカメラで撮影してください。"); return; }
     try {
@@ -1394,18 +1407,26 @@
   function camFrame(rs) {
     const now = Date.now(); const stab = cam.stab = cam.stab || {};
     for (const k of Object.keys(stab)) if (now - stab[k].at > STAB_MS) delete stab[k];
-    const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y); const items = []; const seen = new Set();
+    const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y); const items = []; const seen = new Set(); let outside = 0;
+    const fr = (() => { try { return frameRect($("#video"), 0.35); } catch (e) { return null; } })();
     for (const r of rs || []) {
       const text = r && (typeof r === "string" ? r : r.text); if (!text || seen.has(text)) continue; seen.add(text);
       const sv = stab[text]; stab[text] = { n: (sv ? sv.n : 0) + 1, at: now }; if (!sv) continue;   // 初見は次のコマで確かめる
       if (cam.mode === "pid") { hitOnce(text); continue; }
       const q = (r && r.corners) || []; const geo = q.length === 4 && q.every((pt) => pt && isFinite(pt.x) && isFinite(pt.y));
       const p = GS1.parse(text), a = p.ok ? p.ai : {};
-      items.push({ text, p, ean: /^(EAN-13|EAN-8|UPC-A|UPC-E|ean_13|ean_8|upc_a|upc_e)$/i.test((r && r.format) || ""), geo,
+      const it = { text, p, ean: /^(EAN-13|EAN-8|UPC-A|UPC-E|ean_13|ean_8|upc_a|upc_e)$/i.test((r && r.format) || ""), geo,
         cx: geo ? (q[0].x + q[1].x + q[2].x + q[3].x) / 4 : 0, cy: geo ? (q[0].y + q[1].y + q[2].y + q[3].y) / 4 : 0, ww: geo ? Math.max(D(q[0], q[1]), D(q[0], q[3])) : 0,
-        kind: a["01"] ? (a["10"] || a["21"] ? "full" : "gtin") : (a["10"] || a["21"] || a["17"] ? "lone" : "other") });
+        kind: a["01"] ? (a["10"] || a["21"] ? "full" : "gtin") : (a["10"] || a["21"] || a["17"] ? "lone" : "other") };
+      stab[text].kind = it.kind;
+      // 枠の外に写ったバーコードは見ない（台紙では隣のラベルまで解読していた）。位置はコマの座標なので映像の座標に戻してから枠（余白 35%）と比べる
+      if (geo && cam.crop && fr) { const vx = cam.crop.sx + it.cx / cam.crop.k, vy = cam.crop.sy + it.cy / cam.crop.k; if (vx < fr.sx || vx > fr.sx + fr.sw || vy < fr.sy || vy > fr.sy + fr.sh) { outside++; continue; } }
+      items.push(it);
     }
+    if (outside && !items.length && cam.frames % 10 === 0) $("#camLive").textContent = "枠の外にバーコードがあります（" + outside + " 本）→ 読みたいラベルを枠に入れてください";
     if (!items.length) return;
+    // 直前 1.5 秒以内（= まだ枠に見えている）に、製品だけ／LOT だけの読みがあったか。無ければ、前後の行とはつながない（ev.noPend）
+    const recent = (kind) => Object.keys(stab).some((k) => stab[k].kind === kind && now - stab[k].at <= STAB_MS);
     const cand = [];
     for (const g of items) if (g.kind === "gtin" && g.geo) for (const l of items) if (l.kind === "lone" && l.geo) { const d = D({ x: g.cx, y: g.cy }, { x: l.cx, y: l.cy }); if (d <= 0.6 * Math.max(g.ww, l.ww)) cand.push({ g, l, d }); }
     cand.sort((x, y) => x.d - y.d); for (const c of cand) { if (c.g.mate || c.l.mate) continue; c.g.mate = c.l; c.l.mate = c.g; }
@@ -1416,8 +1437,9 @@
       if (it.kind === "lone") {
         if (it.mate) continue;
         if (hasProd) { camNote("lone:" + it.text, "別のラベルの LOT／シリアル " + (it.p.ai["10"] || it.p.ai["21"] || it.text) + " は入れていません（持ち主の製品バーコードと同じ枠に入れてください）"); continue; }
-        hitOnce(it.text); continue;
+        hitOnce(it.text, { noPend: !recent("gtin") }); continue;
       }
+      if (it.kind === "gtin") { hitOnce(it.text, { noPend: !recent("lone") }); continue; }
       if (it.kind === "other" && it.ean) {   // EAN/UPC は辞書にある製品だけ採る（チェックディジットが合うだけでは採らない: 偽の 13 桁は検査数字も合ってしまう）
         const g = resolveBareProduct(it.text.trim()), jan = g ? GS1.gtinToJan(GS1.unitGtin(g)) : "";
         if (!g || !(lookup(jan) || lookup(GS1.gtinToJan(g)))) { camNote("ean:" + it.text, "辞書に無い番号 " + it.text + " は入れていません（密なバーコードの読み違いで出る番号です）"); continue; } }
@@ -1429,21 +1451,40 @@
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
     const prevRow = cur && cur.items.length ? cur.items[cur.items.length - 1] : null; const prevDone = !!(prevRow && prevRow.gtin && prevRow.lot);
-    const r = addScan(t, false, { src: "cam", force: !!(ev && ev.force) }); const el = $("#camHit");
+    const r = addScan(t, false, { src: "cam", force: !!(ev && ev.force), noPend: !!(ev && ev.noPend) }); const el = $("#camHit");
     if (ev && ev.force && r && r.gtin && !r.twinOk && twinOf(r) >= 0) { r.twinOk = true; save(); render(); log("2 本目として登録（画面で確認済み）: " + (r.name || r.jan) + " LOT " + (r.lot || "—")); }
     if (ev && ev.pair && r && r.gtin && !camRepeat) { r.paired = true; r.raw = ev.pair.join(" | "); save(); render(); }
+    const nm = (x) => x ? [x.name || (x.jan ? "JAN " + x.jan : ""), x.size || ""].filter(Boolean).join(" ") : "";
+    const dt = (x) => x ? ["LOT " + (x.lot || "—"), x.serial ? "SN " + x.serial : "", "期限 " + (x.expiry || "—")].filter(Boolean).join("　") : "";
     if (camRepeat && r && !(ev && ev.force)) {   // 同じラベルの読み直し（90 秒以内）: 足さずに知らせる。2 本目ならボタンで足す
-      el.textContent = "登録済み：" + (r.name || r.jan || "LOT " + (r.lot || r.serial || "")) + (r.gtin ? "  LOT " + (r.lot || "—") : "");
+      let b = null;
       // 2 本目: 登録済みの行の内容（製品＋期限＋LOT＋シリアル）を 1 本の文字列にして足す（押した人が「2 本使った」と決めたので、保存前の確認は済みにする）
-      if (r.gtin && (r.lot || r.serial)) { const b = document.createElement("button"); b.type = "button"; b.textContent = "同じ LOT をもう 1 本使った → 2本目として登録"; b.onclick = (e) => { e.stopPropagation(); hit(GS1.compose(r), { force: true }); }; el.appendChild(b); }
-      el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 6000); return; }
-    if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t), t))) { el.textContent = "リーダー確認用コードを読みました（台帳には入れません）"; el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); beep(); return; }
+      if (r.gtin && (r.lot || r.serial)) { b = document.createElement("button"); b.type = "button"; b.textContent = "同じ LOT をもう 1 本使った → 2本目として登録"; b.onclick = (e) => { e.stopPropagation(); hit(GS1.compose(r), { force: true }); }; }
+      showHit("same", "＝ 登録済み（足していません）", nm(r) || ("LOT " + (r.lot || r.serial || "")), r.gtin ? dt(r) : "", 6000, b); return; }
+    if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t), t))) { showHit("same", "リーダー確認用コード", "台帳には入れません", "", 2600); beep(); return; }
     // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
     const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
-    const tail = done ? (cam.autoClose ? "  ✓ 保存 → 台帳に戻ります" : "  ✓ 保存（" + cur.items.length + " 本目。続けて次を読めます）") : "";
-    el.textContent = !r ? "読めましたが解釈できません: " + String(t).slice(0, 40) : (!r.gtin ? "LOT/REF を読みました → 同じ製品の (01) 付きバーコードも読んでください" : (r.refResolved ? (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + "（REF から特定。(01) 付きも読むと期限が入ります）" : (r.name || r.jan || "") + "  LOT " + (r.lot || "—") + (r.q === "check" ? "  ⚠ 要確認（箱の印字と照合）" : "") + tail));
-    el.classList.add("show"); clearTimeout(cam.hitT); cam.hitT = setTimeout(() => el.classList.remove("show"), 2600); if (navigator.vibrate) navigator.vibrate(60); beep();
+    if (!r) { showHit("bad", "✗ 読めません", "解釈できないバーコードです", String(t).slice(0, 40), 3000); toneBad(); }
+    else if (!r.gtin) { showHit("part", "△ あと製品のバーコード", "LOT " + (r.lot || r.serial || r.ref || "") + " は読めました", "同じラベルの (01) で始まるバーコードを枠に入れてください", 4000); tonePart(); }
+    else if (r.refResolved) { showHit("part", "△ 期限がまだです", nm(r), dt(r) + "　(01) 付きのバーコードも読むと期限が入ります", 4000); tonePart(); }
+    else if (!r.lot && !r.serial) { showHit("part", "△ あと LOT のバーコード", nm(r), "同じラベルの (10) で始まるバーコードを枠に入れてください（LOT の無い製品はこのままで可）", 4000); tonePart(); }
+    else if (r.q === "check") { showHit("chk", "⚠ 登録しました（要確認）", nm(r), dt(r) + "　箱の印字と照合してください", 3500); tonePart(); if (navigator.vibrate) navigator.vibrate([60, 60, 60]); }
+    else if (done) { showHit("ok", "✓ 登録しました" + (cam.autoClose ? "　→ 台帳に戻ります" : "　（" + cur.items.length + " 本目）"), nm(r), dt(r), 3000); toneOk(); if (navigator.vibrate) navigator.vibrate(80); }
+    else { showHit("ok", "✓ 登録済みの行に入れました", nm(r), dt(r), 3000); toneOk(); if (navigator.vibrate) navigator.vibrate(80); }
     if (done && cam.autoClose && !cam.closeT) { clearInterval(cam.timer); cam.timer = null; cam.closeT = setTimeout(() => { cam.closeT = null; closeCam(); log("読めたので台帳に戻りました（続けて読むときは「📷 カメラで読む」）"); }, 1500); } }
+  // カメラ画面の状態表示: 色（ok 緑／part 黄／same 白／bad 赤／chk 橙）を枠にも付け、右上に登録本数
+  function showHit(state, title, name, detail, ms, btn) {
+    const el = $("#camHit"); el.className = "hit show s-" + state;
+    el.innerHTML = '<div class="st">' + esc(title) + "</div>" + (name ? '<div class="nm">' + esc(name) + "</div>" : "") + (detail ? '<div class="dt">' + esc(detail) + "</div>" : "");
+    if (btn) el.appendChild(btn);
+    const fr = $("#cam .frame"); fr.className = "frame s-" + state;
+    clearTimeout(cam.hitT); cam.hitT = setTimeout(() => { el.classList.remove("show"); fr.className = "frame"; }, ms || 3000);
+    camCount();
+  }
+  function camCount() { const el = $("#camCnt"); if (!el) return; el.textContent = cur ? "登録 " + cur.items.length + " 本" + (cur.items.some((x) => !x.gtin || (!x.lot && !x.serial)) ? "（未完 " + cur.items.filter((x) => !x.gtin || (!x.lot && !x.serial)).length + "）" : "") : ""; }
+  function toneOk() { tone(1320, 70); tone(1760, 110, .08); }   // 登録: 上がる 2 音
+  function tonePart() { tone(880, 120); }                         // あと 1 本: 低い 1 音
+  function toneBad() { tone(220, 220); }                          // 読めない: さらに低い 1 音
   function closeCam() { clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
   let actx; function beep() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1760; g.gain.value = .08; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .09); } catch (e) {} }
   $("#btnCam").onclick = openCam; $("#btnCamClose").onclick = closeCam;
