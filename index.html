@@ -345,6 +345,7 @@
     <button class="btn" id="btnFlip">🔄 カメラ切替</button>
     <button class="btn" id="btnMode">🎯 デバイス</button>
     <button class="btn" id="btnAuto" title="行が完成したら台帳に戻る／連続で読む">✅ 読めたら戻る</button>
+    <button class="btn" id="btnSound" title="読み取り音を鳴らす／消す">🔔 音あり</button>
     <button class="btn" id="btnOcr" style="display:none">🔢 数字を読む</button>
     <span style="flex:1"></span>
     <button class="btn primary" id="btnCamClose">閉じる</button>
@@ -379,7 +380,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-19.6";
+  const VERSION = "2026-11-19.7";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -669,7 +670,12 @@
     el.style.display = "block"; $("#pidYes").onclick = () => { el.style.display = "none"; setPid(t); }; $("#pidNo").onclick = () => { el.style.display = "none"; };
     log("製品の GS1 バーコードではありません: " + t + "（型番だけのバーコード？ 同じ箱の (01) 付きを読んでください）");
   }
-  function tone(freq, ms, when) { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.type = "square"; o.frequency.value = freq; g.gain.value = .07; o.connect(g); g.connect(actx.destination); o.start(actx.currentTime + (when || 0)); o.stop(actx.currentTime + (when || 0) + ms / 1000); } catch (e) {} }
+  // 音（2026-11-19.7: スマホではタップ時に音の準備をしないと鳴らないので、カメラを開くボタンで起こす。音量も上げた。🔔／🔕 で切り替え）
+  var actx;
+  function soundOn() { try { return localStorage.getItem("scanLedger.sound") !== "0"; } catch (e) { return true; } }
+  function audioCtx() { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
+  function audioUnlock() { try { const c = audioCtx(); const b = c.createBuffer(1, 1, 22050), src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch (e) {} }
+  function tone(freq, ms, when) { if (!soundOn()) return; try { const c = audioCtx(); const o = c.createOscillator(), g = c.createGain(); o.type = "square"; o.frequency.value = freq; g.gain.value = .18; o.connect(g); g.connect(c.destination); o.start(c.currentTime + (when || 0)); o.stop(c.currentTime + (when || 0) + ms / 1000); } catch (e) {} }
   function scanFeedback(r, msg, via) {
     const el = $("#scanMsg"); if (!el) return;
     const nm = r ? [r.name || (r.jan ? "JAN " + r.jan : ""), r.size || ""].filter(Boolean).join(" ") : "";
@@ -1265,7 +1271,9 @@
       $("#camMsg").textContent = "バーコードを枠に入れ、15〜20cm 離してピントが合うまで待ってください（近すぎるとぼやけます。寄せたい時は 🔍 ズーム）"; $("#camLive").textContent = "起動中 " + cam.camInfo; cam.frames = 0; cam.openedAt = Date.now();
       setTimeout(() => { if (cam.stream && v.readyState < 2) showFail("カメラは許可されましたが映像が届きません。他のカメラアプリを閉じるか、下のボタンで端末のカメラで撮影してください。"); }, 15000);
       let busy = false;
-      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return; busy = true; try { camFrame(await read(v)); } catch (e) { cam.lastErr = "解析: " + (e && e.message || e); $("#camLive").textContent = cam.lastErr; } busy = false; }, 200);
+      cam.timer = setInterval(async () => { if (busy || v.readyState < 2) return;
+        if (Date.now() < (cam.holdUntil || 0)) { cam.stab = {}; return; }   // 登録直後の 1.5 秒は読まない
+        busy = true; try { camFrame(await read(v)); } catch (e) { cam.lastErr = "解析: " + (e && e.message || e); $("#camLive").textContent = cam.lastErr; } busy = false; }, 200);
     } catch (e) { const msg = camErrText(e); showFail(msg); log("カメラ: " + msg); }
   }
   function showFail(msg) { closeStream(); cam.lastErr = msg; $("#camMsg").textContent = ""; $("#camFailMsg").textContent = msg; $("#camFail").style.display = "block"; $("#diag").textContent = "診断: " + msg; }
@@ -1628,7 +1636,8 @@
       hitOnce(it.text);
     }
   }
-  function hitOnce(t, ev) { if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t, ev); } }
+  const HOLD_MS = 1500;   // 登録の表示が出たら 1.5 秒は次を読まない（2026-11-19.7 先生「反応が速すぎてすぐ 2 つ読んだことになる」）
+  function hitOnce(t, ev) { if (Date.now() < (cam.holdUntil || 0)) return; if (t && (t !== cam.lastText || Date.now() - cam.lastAt > 2500)) { cam.lastText = t; cam.lastAt = Date.now(); hit(t, ev); } }
   function hit(t, ev) {
     if (cam.mode === "pid") { const s = String(t).trim(); if (PID_RE.test(s)) { setPid(s); beep(); if (navigator.vibrate) navigator.vibrate(60); closeCam(); setMode("device"); return; } }
     // 直前の行がすでに完成していたか（完成済みの行に REF などが後から補完されただけなら「新たに完成」ではない）
@@ -1638,6 +1647,7 @@
     if (ev && ev.pair && r && r.gtin && !camRepeat) { r.paired = true; r.raw = ev.pair.join(" | "); save(); render(); }
     const nm = (x) => x ? [x.name || (x.jan ? "JAN " + x.jan : ""), x.size || ""].filter(Boolean).join(" ") : "";
     const dt = (x) => x ? ["LOT " + (x.lot || "—"), x.serial ? "SN " + x.serial : "", "期限 " + (x.expiry || "—")].filter(Boolean).join("　") : "";
+    if (camRepeat && r && !(ev && ev.force) && r === cam.okRow && Date.now() - cam.okAt < 4000) return;   // いま登録したラベルをまだ映しているだけ
     if (camRepeat && r && !(ev && ev.force)) {   // 同じラベルの読み直し（90 秒以内）: 足さずに知らせる。2 本目ならボタンで足す
       let b = null;
       // 2 本目: 登録済みの行の内容（製品＋期限＋LOT＋シリアル）を 1 本の文字列にして足す（押した人が「2 本使った」と決めたので、保存前の確認は済みにする）
@@ -1646,6 +1656,7 @@
     if (!r && (GS1.parse(t).ai["01"] === GS1.TEST.gtin || isShortTest(GS1.parse(t), t))) { showHit("same", "リーダー確認用コード", "台帳には入れません", "", 2600); beep(); return; }
     // 行の完成 = (01) の製品コードと LOT がそろった（REF だけで特定した行は (01) 待ちなので未完成扱い）
     const done = !!(r && r.gtin && r.lot && !r.pending && !r.refResolved) && !(r === prevRow && prevDone);
+    if (r && r.gtin && (r.lot || r.serial) && !r.refResolved) { cam.holdUntil = Date.now() + HOLD_MS; cam.okRow = r; cam.okAt = Date.now(); }
     if (!r) { showHit("bad", "✗ 読めません", "解釈できないバーコードです", String(t).slice(0, 40), 3000); toneBad(); }
     else if (!r.gtin) { showHit("part", "△ あと製品のバーコード", "LOT " + (r.lot || r.serial || r.ref || "") + " は読めました", "同じラベルの (01) で始まるバーコードを枠に入れてください", 4000); tonePart(); }
     else if (r.refResolved) { showHit("part", "△ 期限がまだです", nm(r), dt(r) + "　(01) 付きのバーコードも読むと期限が入ります", 4000); tonePart(); }
@@ -1668,12 +1679,15 @@
   function tonePart() { tone(880, 120); }                         // あと 1 本: 低い 1 音
   function toneBad() { tone(220, 220); }                          // 読めない: さらに低い 1 音
   function closeCam() { clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
-  let actx; function beep() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 1760; g.gain.value = .08; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .09); } catch (e) {} }
-  $("#btnCam").onclick = openCam; $("#btnCamClose").onclick = closeCam;
+  function beep() { tone(1760, 90); }
+  $("#btnCam").onclick = () => { audioUnlock(); openCam(); }; $("#btnCamClose").onclick = closeCam;
   $("#btnMode").onclick = () => setMode(cam.mode === "device" ? "pid" : "device");
   function autoLabel() { $("#btnAuto").textContent = cam.autoClose ? "✅ 読めたら戻る" : "🔁 連続で読む"; }
   $("#btnAuto").onclick = () => { cam.autoClose = !cam.autoClose; try { localStorage.setItem("scanLedger.autoClose", cam.autoClose ? "1" : "0"); } catch (e) {} autoLabel(); $("#camMsg").textContent = cam.autoClose ? "品名と LOT がそろったら自動で台帳に戻ります" : "連続で読めます。終わったら「閉じる」で台帳に戻ります"; };
   autoLabel();
+  function soundLabel() { $("#btnSound").textContent = soundOn() ? "🔔 音あり" : "🔕 音なし"; }
+  $("#btnSound").onclick = () => { const on = !soundOn(); try { localStorage.setItem("scanLedger.sound", on ? "1" : "0"); } catch (e) {} soundLabel(); if (on) { audioUnlock(); toneOk(); } };
+  soundLabel();
   // 数字の OCR（tesseract.js、CDN）。枠の範囲だけ切り出して数字のみ認識し、候補をボタンで示す
   async function getOcr() {
     if (cam.ocr) return cam.ocr;
