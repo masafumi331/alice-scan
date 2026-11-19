@@ -9,7 +9,7 @@
 //   3) 区切り無しの生文字列（可変長 AI は末尾まで。GS が抜けたかどうかは文字列だけでは決められない → noGs / alts で知らせる）
 (function (root) {
   const GS = "\u001d";
-  const VERSION = "2026-11-14";
+  const VERSION = "2026-11-19";
   // 事前定義長の AI（後ろに GS が要らない）
   const FIXED = { "00": 18, "01": 14, "02": 14, "03": 14, "04": 16, "11": 6, "12": 6, "13": 6, "14": 6, "15": 6, "16": 6, "17": 6, "18": 6, "19": 6, "20": 2,
     "410": 13, "411": 13, "412": 13, "413": 13, "414": 13, "415": 13, "416": 13 };
@@ -194,6 +194,17 @@
     short: { label: "短い確認用コード（GS1-128）", raw: "1000" + GS + "17991231", lot: "00", exp: "991231", gs: 1 },
     linear: { label: "GS1-128（一次元）", raw: "010950600013435210TEST128A" + GS + "21SN128B" + GS + "17301231", lot: "TEST128A", serial: "SN128B", exp: "301231" },
     matrix: { label: "GS1 DataMatrix（二次元）", raw: "010950600013435210TESTDMA" + GS + "21SNDMB" + GS + "17301231", lot: "TESTDMA", serial: "SNDMB", exp: "301231" } };
-  root.GS1 = { VERSION, parse, expiry, dateInfo, gtinToJan, unitGtin, gtinCheck, checkDigit, toRecord, applyAlt, visible, aiSpec, NAMES, GS, TEST };
+  // 台帳の 1 行から、販売店ラベル・POU の使用報告と同じ並びの HRI 文字列を組み立てる: (01)GTIN(17)期限(10)LOT(21)シリアル。
+  // 期限は読み取りの原文（YYMMDD）を優先し、無ければ YYYY-MM-DD から作る。分割バーコードを統合した行でも 1 本の文字列になる（2026-11-19）
+  function compose(r) {
+    if (!r) return ""; let s = "";
+    const g = String(r.gtin || ""); if (/^\d{14}$/.test(g)) s += "(01)" + g;
+    let ex = String(r.expiryRaw || ""); if (!/^\d{6}$/.test(ex)) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.expiry || "")); ex = m ? m[1].slice(2) + m[2] + m[3] : ""; }
+    if (ex) s += "(17)" + ex;
+    if (r.lot) s += "(10)" + r.lot; if (r.serial) s += "(21)" + r.serial;
+    if (!r.gtin && r.ref) s += "(240)" + r.ref;
+    return s;
+  }
+  root.GS1 = { VERSION, parse, expiry, dateInfo, gtinToJan, unitGtin, gtinCheck, checkDigit, toRecord, applyAlt, compose, visible, aiSpec, NAMES, GS, TEST };
   if (typeof module !== "undefined" && module.exports) module.exports = root.GS1;
 })(typeof window !== "undefined" ? window : globalThis);

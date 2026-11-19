@@ -217,7 +217,7 @@
         <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none">
         <button class="btn sm" id="btnFocus">リーダー入力にフォーカス</button>
         <button class="btn sm" id="btnRdOpen" title="確認用コードを読んで、LOT・期限の区切りが届くかを確かめます">🔎 リーダーの確認</button>
-        <label class="f" style="flex-direction:row; align-items:center; gap:6px; text-transform:none; letter-spacing:0"><select id="selfSet" style="padding:7px 30px 7px 10px; min-width:0; font-size:13px"><option value="all">全部（8 症例）</option><option>PCI</option><option>EVT</option><option>アブレーション</option><option>PM</option><option>SHD（TAVI）</option><option>SHD（ASD閉鎖）</option><option>SHD（左心耳閉鎖）</option><option>CAG</option></select><button class="btn sm" id="btnSelfTest" type="button">自己テスト</button></label>
+        <label class="f" style="flex-direction:row; align-items:center; gap:6px; text-transform:none; letter-spacing:0"><select id="selfSet" style="padding:7px 30px 7px 10px; min-width:0; font-size:13px"><option value="all">全部（9 症例）</option><option>PCI</option><option>販売店ラベル</option><option>EVT</option><option>アブレーション</option><option>PM</option><option>SHD（TAVI）</option><option>SHD（ASD閉鎖）</option><option>SHD（左心耳閉鎖）</option><option>CAG</option></select><button class="btn sm" id="btnSelfTest" type="button">自己テスト</button></label>
       </div>
       <div class="row" id="recvRow" style="margin-top:10px; align-items:center; gap:10px">
         <label class="f" style="flex-direction:row; align-items:center; gap:7px; text-transform:none; letter-spacing:0; margin:0; font-size:13px; color:var(--ink)"><input type="checkbox" id="recvChk" style="width:auto; min-width:0"> 🔫 スキャナー常時受付（どこを触っていても読み取る）</label>
@@ -260,6 +260,22 @@
         <button class="btn" id="btnCsv">この症例を CSV（全項目）</button>
         <button class="btn" id="btnJson">この症例を JSON</button>
         <button class="btn" id="btnAllCsv">全症例を CSV</button>
+      </div>
+      <div id="mailBox" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line)">
+        <div class="row">
+          <label class="f">メールの宛先<span class="row" style="gap:6px"><select id="mailTo" style="min-width:200px"><option value="">（宛先を登録してください）</option></select><button class="btn sm" id="btnMailAdd" type="button" title="宛先を登録する">＋登録</button><button class="btn sm" id="btnMailDel" type="button" title="選んでいる宛先を消す">消す</button></span></label>
+          <button class="btn primary" id="btnMail">メールで送る（この症例）</button>
+          <button class="btn" id="btnMailAll">メールで送る（全症例）</button>
+        </div>
+        <div class="stat" style="margin-top:6px; line-height:1.7">本文に使用報告（症例・製品ごとの品名／バーコード／ロット／期限／価格）を書き、事務へ送る CSV を添付します。スマホでは共有画面でメールアプリを選びます。共有できない PC では CSV をダウンロードしてメール画面を開くので、その CSV を添付してください。</div>
+        <details style="margin-top:6px"><summary class="stat">差出人の設定（病院名・使用場所・登録者・添付の形式）</summary>
+          <div class="row" style="margin-top:8px">
+            <label class="f">病院名<input type="text" id="mailHosp" placeholder="例 名戸ヶ谷病院" style="min-width:160px"></label>
+            <label class="f">使用場所<input type="text" id="mailPlace" placeholder="例 カテ室" style="min-width:120px"></label>
+            <label class="f">登録者<input type="text" id="mailBy" placeholder="氏名" style="min-width:120px"></label>
+            <label class="f">添付する CSV<select id="mailFmt"><option value="jimu">事務へ送る CSV（請求用の列）</option><option value="rep">使用報告 CSV（バーコード列つき）</option></select></label>
+          </div>
+        </details>
       </div>
       <div id="twinAsk" class="stat" style="display:none; margin-top:10px; padding:10px 12px; border:1px solid var(--gold); border-left-width:6px; border-radius:10px; line-height:1.9; color:var(--ink)"></div>
       <!-- 製品辞書の欄は画面に出さない（2026-11-08 先生「個人的に使用するものではないので」。機能は残す） -->
@@ -351,7 +367,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-16.1";
+  const VERSION = "2026-11-19.1";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -607,7 +623,9 @@
   const LSS = "scanLedger.lotShape";
   let SHP = (function () { try { return JSON.parse(localStorage.getItem(LSS)) || {}; } catch (e) { return {}; } })();
   const SHAPE_SEED = { "4547327": ["999999A99A", "999999A999"], "4540778": ["AA999999"], "4543660": ["A9A999999A"], "4544043": ["A999A99", "A99A999A", "A999999A"], "4543527": ["99A9999"],
-    "0852528": ["99AA9999"], "0850000": ["999999-9"], "4987458": ["99A99999"], "5415067": ["99999A9", "99999999"] };   // 2026-11-14 訂正: 実機の読取ログ（1051126G1、1026G0188）と拡大画像で確かめ直した
+    "0852528": ["99AA9999"], "0850000": ["999999-9"], "4987458": ["99A99999", "99A99A", "99A99", "A99A99999A99"], "5415067": ["99999A9", "99999999"] };   // 2026-11-14 訂正: 実機の読取ログ（1051126G1、1026G0188）と拡大画像で確かめ直した
+  // 2026-11-19 追加: 販売店（アステック）ラベル 9 枚と業者の使用報告の実物から。4543660（グッドマン）は AFGE25L005、4987458（ニプロ扱い）は 24G22S・26C19・R26D14926E11 が同じラベルの (01) と組で確認できた
+  SHAPE_SEED["4543660"].push("AAAA99A999");
   const shapeOf = (s) => String(s).replace(/[A-Za-z]/g, "A").replace(/\d/g, "9");
   const shapeKey = (jan) => jan13(jan).slice(0, 7);
   function knownShapes(jan) { const k = shapeKey(jan), a = new Set(SHAPE_SEED[k] || []); Object.keys(SHP[k] || {}).forEach((x) => a.add(x)); return a; }
@@ -1055,6 +1073,90 @@
   function csv(rs, cols) { const q = (v) => { const s = String(v == null ? "" : v); return '"' + (xlRisk(s) ? '="' + s + '"' : s).replace(/"/g, '""') + '"'; }; return "﻿" + [cols || COLS].concat(rs).map((r) => r.map(q).join(",")).join("\r\n"); }
   function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }
 
+  // ---------- メールで事務へ送る（2026-11-19。本文に使用報告、CSV を添付）
+  // 宛先は登録して選ぶ（この端末の localStorage）。サーバーは使わず、端末の共有画面（メールアプリ）か mailto: で送る
+  const LSM = "scanLedger.mail";
+  let MAILC = (function () { try { return JSON.parse(localStorage.getItem(LSM)) || {}; } catch (e) { return {}; } })();
+  MAILC.list = Array.isArray(MAILC.list) ? MAILC.list : [];   // [{ name, mail }]
+  const MAILF = ["mailHosp", "mailPlace", "mailBy", "mailFmt"];
+  function mailPersist() { try { localStorage.setItem(LSM, JSON.stringify(MAILC)); } catch (e) {} }
+  function mailRender() {
+    const sel = $("#mailTo"); if (!sel) return; sel.innerHTML = "";
+    if (!MAILC.list.length) { const o = document.createElement("option"); o.value = ""; o.textContent = "（宛先を登録してください）"; sel.appendChild(o); }
+    MAILC.list.forEach((x) => { const o = document.createElement("option"); o.value = x.mail; o.textContent = x.name ? x.name + "　" + x.mail : x.mail; sel.appendChild(o); });
+    if (MAILC.to && MAILC.list.some((x) => x.mail === MAILC.to)) sel.value = MAILC.to; else MAILC.to = sel.value;
+    for (const f of MAILF) { const el = $("#" + f); if (el && MAILC[f] != null) el.value = MAILC[f]; }
+  }
+  function mailSave() { for (const f of MAILF) { const el = $("#" + f); if (el) MAILC[f] = el.value.trim(); } const sel = $("#mailTo"); if (sel) MAILC.to = sel.value; mailPersist(); }
+  const MAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function mailAdd() {
+    const m = (prompt("宛先のメールアドレス（例 jimu@example.jp）") || "").trim(); if (!m) return;
+    if (!MAIL_RE.test(m)) { alert("メールアドレスの形になっていません: " + m); return; }
+    const nm = (prompt("表示する名前（例 医事課）。空欄でも可") || "").trim();
+    const ex = MAILC.list.find((x) => x.mail.toLowerCase() === m.toLowerCase()); if (ex) ex.name = nm || ex.name; else MAILC.list.push({ name: nm, mail: m });
+    MAILC.to = m; mailPersist(); mailRender(); log("宛先を登録しました: " + (nm ? nm + " " : "") + m);
+  }
+  function mailDel() {
+    const sel = $("#mailTo"); const m = sel && sel.value; if (!m) return;
+    const x = MAILC.list.find((y) => y.mail === m); if (!x || !confirm("宛先を消しますか？" + NL + (x.name ? x.name + " " : "") + x.mail)) return;
+    MAILC.list = MAILC.list.filter((y) => y.mail !== m); MAILC.to = ""; mailPersist(); mailRender(); log("宛先を消しました: " + m);
+  }
+  // 使用報告 CSV（1 行 1 個。バーコードの文字列・使用期限 YYMMDD・特定保険医療材料コードつき）
+  const RCOLS = ["報告番号", "病院名", "使用年月日", "使用場所", "識別コード", "登録者", "メモ", "No.", "商品名", "製品番号", "規格", "使用数量", "バーコード", "使用期限(YYMMDD)", "ロット", "シリアル", "製造販売業者", "償還価格", "特定保険医療材料", "備考"];
+  const ubd = (r) => /^\d{6}$/.test(r.expiryRaw || "") ? r.expiryRaw : (r.expiry ? String(r.expiry).slice(2).replace(/-/g, "") : "");   // 使用期限 YYMMDD（ラベルの印字どおり）
+  const tokumat = (r) => r.master === "○" ? [r.ijicode, r.hoken].filter(Boolean).join(": ") : "";   // 例 710010642: 心腔内超音波プローブ（磁気センサー付き）
+  const priceOf = (r) => r.master === "○" ? (r.kubun === "償還不可" ? "償還不可" : (r.price || 0)) : "";
+  const hinbanOf = (r) => r.hinban || r.model || r.ref || "";
+  const memoOf = (c) => [c.proc, validLesions(c).map(lesionLabel).join("; ")].filter(Boolean).join(" ");
+  const reportNo = (c) => String(c.date || "").replace(/-/g, "").slice(2) + "_" + idLabel(c) + "_" + c.proc;
+  function rrows(c) { return c.items.map((r, i) => [reportNo(c), MAILC.mailHosp || "", c.date, MAILC.mailPlace || "", idLabel(c), MAILC.mailBy || "", memoOf(c), i + 1, r.name || (r.jan ? "JAN " + r.jan : ""), hinbanOf(r), [r.size, r.shape].filter(Boolean).join(" "), 1, GS1.compose(r), ubd(r), r.lot || "", r.serial || "", mkr(r), priceOf(r), tokumat(r), [siteLabel(r, c), notes(r).map((x) => x[0]).join(";")].filter(Boolean).join(" ")]); }
+  function mailSubject(cases) { return "使用報告 " + (MAILC.mailHosp ? MAILC.mailHosp + " " : "") + (cases.length === 1 ? cases[0].date + " " + idLabel(cases[0]) + " " + cases[0].proc : "全症例 " + today() + "（" + cases.length + " 症例）"); }
+  function mailBody(cases) {
+    const L = [];
+    for (const c of cases) {
+      L.push("■ 使用報告 " + reportNo(c), "病院名: " + (MAILC.mailHosp || ""), "使用年月日: " + c.date, "使用場所: " + (MAILC.mailPlace || ""), "識別コード: " + idLabel(c), "登録者: " + (MAILC.mailBy || ""), "メモ: " + memoOf(c), "");
+      c.items.forEach((r, i) => {
+        L.push((i + 1) + ". " + (r.name || (r.jan ? "JAN " + r.jan : "（製品不明）")) + " " + [r.size, r.shape].filter(Boolean).join(" ") + "　製品番号 " + (hinbanOf(r) || "—") + "　数量 1");
+        L.push("   " + (GS1.compose(r) || "（バーコード未読）"));
+        L.push("   期限 " + (ubd(r) || "—") + "　ロット " + (r.lot || "—") + (r.serial ? "　シリアル " + r.serial : "") + (mkr(r) ? "　" + mkr(r) : ""));
+        const pr = priceOf(r), tk = tokumat(r), nt = notes(r).filter((x) => x[1] !== "ok").map((x) => x[0]).join("; "), st = siteLabel(r, c);
+        const tail = [pr === "" ? "マスター未登録" : (pr === "償還不可" ? "償還不可" : Number(pr).toLocaleString() + " 円"), tk, st ? "部位 " + st : "", nt ? "注意: " + nt : ""].filter(Boolean).join("　");
+        if (tail) L.push("   " + tail);
+      });
+      L.push("");
+    }
+    L.push("— Alice Scan 台帳 v" + VERSION + " から送信（CSV を添付）");
+    return L.join(NL);
+  }
+  function mailPack(cases) {
+    const rep = MAILC.mailFmt === "rep";
+    const text = rep ? csv(cases.flatMap(rrows), RCOLS) : csv(cases.flatMap(jrows), JCOLS);
+    const name = (rep ? "使用報告_" : "事務_") + (cases.length === 1 ? fileBase(cases[0]) : "全症例_" + today()) + ".csv";
+    return { text, name };
+  }
+  async function sendMail(cases, btn) {
+    mailSave(); if (!cases.length) { alert("送る症例がありません"); return; }
+    if (!MAILC.to) { if (confirm("宛先がまだ登録されていません。今、登録しますか？")) mailAdd(); if (!MAILC.to) return; }
+    if (!exportGate(cases, btn)) return;
+    const f = mailPack(cases), subject = mailSubject(cases), body = mailBody(cases);
+    let file = null; try { file = new File([f.text], f.name, { type: "text/csv" }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ title: subject, text: body, files: [file] }); log("共有画面を開きました → メールアプリを選び、宛先に " + MAILC.to + " を入れて送ってください（本文と CSV " + f.name + " は入っています）"); return; }
+      catch (e) { if (e && e.name === "AbortError") { log("共有を取りやめました"); return; } log("共有できませんでした（" + e.message + "）→ CSV をダウンロードしてメール画面を開きます"); }
+    }
+    download(f.name, f.text, "text/csv");
+    let b = body; const MAX = 1800;   // mailto: の本文は長いと開けないメールアプリがある
+    if (b.length > MAX) b = b.slice(0, MAX) + NL + "…（続きは添付の CSV をご覧ください）";
+    const href = "mailto:" + encodeURIComponent(MAILC.to) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(b);
+    try { window.location.href = href; } catch (e) {}
+    log("CSV " + f.name + " をダウンロードし、" + MAILC.to + " 宛のメール画面を開きました → ダウンロードした CSV を添付して送ってください");
+  }
+  MAILF.concat(["mailTo"]).forEach((f) => { const el = $("#" + f); if (el) el.addEventListener("change", mailSave); });
+  mailRender();
+  $("#btnMailAdd").onclick = mailAdd; $("#btnMailDel").onclick = mailDel;
+  $("#btnMail").onclick = () => cur && sendMail([cur], "btnMail");
+  $("#btnMailAll").onclick = () => sendMail(Object.values(db.cases), "btnMailAll");
+
   // ---------- カメラ読み取り（BarcodeDetector → zxing-wasm）
   const cam = { stream: null, timer: null, facing: "environment", lastText: "", lastAt: 0, reader: null, engine: "", mode: "device", ocr: null, ocrBusy: false, closeT: null, autoClose: (function () { try { return localStorage.getItem("scanLedger.autoClose") !== "0"; } catch (e) { return true; } })() };
   const FORMATS = ["code_128", "data_matrix", "qr_code", "ean_13", "code_39", "itf", "ean_8", "codabar"];
@@ -1495,7 +1597,12 @@
     "SHD（TAVI）": { pid: "TEST-TAVI", codes: [gs("690103194791", "280531", "T26T01"), gs("4543043078545", "281231", "T26T02"), gs("4987350274670", "280930", "T26T03"), gs("4987350379030", "280228", "T26T04"), gs("4987350379030", "280228", "T26T05")] },
     "SHD（ASD閉鎖）": { pid: "TEST-ASD", codes: [gs("4260182520659", "280831", "T26S01"), gs("4260182520413", "280831", "T26S02"), gs("4987482178693", "270930", "T26S03"), gs("4544881126382", "280430", "T26S04")] },
     "SHD（左心耳閉鎖）": { pid: "TEST-LAA", codes: [gs("191506004606", "280731", "T26L01"), gs("4987482178693", "270930", "T26L02"), gs("4544881126382", "280430", "T26L03"), gs("4987350379030", "280228", "T26L04")] },
-    "CAG": { pid: "TEST-CAG", codes: [gs("4987350071712", "280731", "T26C01"), gs("4987350274670", "280930", "T26C02"), gs("4543043116940", "281130", "T26C03"), gs("4543043078545", "281231", "T26C04"), gs("4987350451439", "290131", "T26C05")] }
+    "CAG": { pid: "TEST-CAG", codes: [gs("4987350071712", "280731", "T26C01"), gs("4987350274670", "280930", "T26C02"), gs("4543043116940", "281130", "T26C03"), gs("4543043078545", "281231", "T26C04"), gs("4987350451439", "290131", "T26C05")] },
+    // 販売店（アステック）のラベル: 1 枚に「(01)+(17)」と「(10) または (21)」の 2 本（2026-11-19、実物の台紙 9 枚から。LOT・シリアルは実物）。読む順が前後しても 1 行に統合されること、
+    // (10) と (21) が 1 本に入ったもの・期限の無いもの・梱包単位 GTIN・辞書に無い製品・同じ LOT のラベル 2 枚（保存前の確認）を含む
+    "販売店ラベル": { pid: "TEST-ASTEC", codes: ["(01)04540778134898(17)290531", "(10)SW076241", "(10)SW066336", "(01)04540778173071(17)290531", "(01)04543660023768(17)291231", "(10)AFGE25L005",
+      "(01)04987458529542(17)290228", "(10)26C19", "(01)14560136100539(17)301028", "(10)2025101625886(21)0003305-0000", "(01)04580096576963", "(10)S17542", "(01)04987482791595(17)261224", "(21)G2277973",
+      "(01)08888893032375(17)280329", "(10)W26030555(21)260307810", "(01)37332414119721(17)270930", "(10)25J0062", "(01)37332414119721(17)270930", "(10)25J0062", "(01)04547327132596(17)290630(10)260703K21A", "(01)04543527190534(17)290228(10)26I1664"] }
   };
   function runSelfTest(name) {
     const set = SELF[name]; if (!set) return;
