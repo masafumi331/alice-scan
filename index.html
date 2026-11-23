@@ -388,7 +388,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-23.2";
+  const VERSION = "2026-11-23.3";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -700,8 +700,9 @@
     el.textContent = t; el.style.display = "block"; el.style.borderColor = col; el.style.color = lv === "dim" ? "var(--muted)" : "var(--ink)"; el.style.borderLeftWidth = "6px";
     // 2026-11-23.1: 製品＋LOT（またはシリアル）が揃った行ができたときも PC から「ピロン」（上がる 2 音）。リーダー本体の「ピッ」は読めれば毎回同じなので、
     // 揃ったかどうかはこの音で聞き分ける（先生「表示だけでなく読み込み忘れを防ぐ方法」→ 運用は「ピロンが鳴るまで次の箱に行かない」）
-    // 2026-11-23.2: 同じ製品・同じLOTの 2 本目（twinMsg）も揃った行なのでピロン（先生「Veloute で LOT を読んでもいい音が鳴らない」＝台紙 2 周目で 2 本目扱いになり無音だった）
-    if (via === "hid") { if ((lv === "ok" || twinMsg) && r && r.gtin) toneOk(); else if (lv === "warn") { tone(520, 110); tone(520, 110, .16); } else if (lv === "bad") tone(240, 380); }   // 揃った＝ピロン、足りない＝2 回の短い音、要確認・入らない＝低い長い音
+    // 2026-11-23.2: 同じ製品・同じLOTの 2 本目（twinMsg）も揃った行なので鳴らす（先生「Veloute で LOT を読んでもいい音が鳴らない」＝台紙 2 周目で 2 本目扱いになり無音だった）
+    // 2026-11-23.3: 先生「2 本目の時は違う音を」→ 2 本目は「ピロン・ピロン」（toneTwin）
+    if (via === "hid") { if (twinMsg && r && r.gtin) toneTwin(); else if (lv === "ok" && r && r.gtin) toneOk(); else if (lv === "warn") { tone(520, 110); tone(520, 110, .16); } else if (lv === "bad") tone(240, 380); }   // 揃った＝ピロン、足りない＝2 回の短い音、要確認・入らない＝低い長い音
   }
   const LSG = "scanLedger.scanLog";
   let SLOG = (function () { try { return JSON.parse(localStorage.getItem(LSG)) || []; } catch (e) { return []; } })();
@@ -1712,6 +1713,7 @@
   }
   function camCount() { const el = $("#camCnt"); if (!el) return; el.textContent = cur ? "登録 " + cur.items.length + " 本" + (cur.items.some((x) => !x.gtin || (!x.lot && !x.serial)) ? "（未完 " + cur.items.filter((x) => !x.gtin || (!x.lot && !x.serial)).length + "）" : "") : ""; }
   function toneOk() { tone(1320, 70); tone(1760, 110, .08); }   // 登録: 上がる 2 音
+  function toneTwin() { tone(1320, 70); tone(1760, 110, .08); tone(1320, 70, .30); tone(1760, 110, .38); }   // 同じ製品・同じLOTの 2 本目: ピロン・ピロン
   function tonePart() { tone(880, 120); }                         // あと 1 本: 低い 1 音
   function toneBad() { tone(220, 220); }                          // 読めない: さらに低い 1 音
   function closeCam() { try { $("#camMark").innerHTML = ""; } catch (e) {} clearTimeout(cam.closeT); cam.closeT = null; closeStream(); $("#cam").style.display = "none"; $("#camFail").style.display = "none"; }
