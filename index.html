@@ -388,7 +388,7 @@
       '<br><span style="opacity:.75">This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.</span>';
   }
 
-  const VERSION = "2026-11-19.8";
+  const VERSION = "2026-11-23.1";
   let db = load(); let cur = null;
   function load() {
     let d; try { d = JSON.parse(localStorage.getItem(LS)) || { cases: {} }; } catch (e) { d = { cases: {} }; }
@@ -698,7 +698,9 @@
     else { lv = "ok"; t = "✓ " + nm + "　LOT " + (r.lot || "—") + (r.serial ? "　SN " + r.serial : "") + "　期限 " + (r.expiry || "—"); }
     const col = { ok: "var(--cyan)", warn: "var(--gold)", bad: "var(--coral)", dim: "var(--muted)" }[lv];
     el.textContent = t; el.style.display = "block"; el.style.borderColor = col; el.style.color = lv === "dim" ? "var(--muted)" : "var(--ink)"; el.style.borderLeftWidth = "6px";
-    if (via === "hid" && !twinMsg) { if (lv === "warn") { tone(520, 110); tone(520, 110, .16); } else if (lv === "bad") tone(240, 380); }   // 足りない＝2 回の短い音、要確認・入らない＝低い長い音（通ったときは鳴らさない）
+    // 2026-11-23.1: 製品＋LOT（またはシリアル）が揃った行ができたときも PC から「ピロン」（上がる 2 音）。リーダー本体の「ピッ」は読めれば毎回同じなので、
+    // 揃ったかどうかはこの音で聞き分ける（先生「表示だけでなく読み込み忘れを防ぐ方法」→ 運用は「ピロンが鳴るまで次の箱に行かない」）
+    if (via === "hid" && !twinMsg) { if (lv === "ok" && r && r.gtin) toneOk(); else if (lv === "warn") { tone(520, 110); tone(520, 110, .16); } else if (lv === "bad") tone(240, 380); }   // 揃った＝ピロン、足りない＝2 回の短い音、要確認・入らない＝低い長い音
   }
   const LSG = "scanLedger.scanLog";
   let SLOG = (function () { try { return JSON.parse(localStorage.getItem(LSG)) || []; } catch (e) { return []; } })();
